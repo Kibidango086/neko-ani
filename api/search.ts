@@ -18,7 +18,12 @@ export default async function handler(req: any, res: any) {
     return res.status(200).json(results);
   } catch (error) {
     console.error('Search error:', error);
-    return res.status(500).json({ error: 'Search failed', message: error?.message || String(error) });
+    // 返回更多调试信息（临时）以便在部署中快速定位问题
+    return res.status(500).json({
+      error: 'Search failed',
+      message: error?.message || String(error),
+      stack: error?.stack || null
+    });
   }
 }
 
