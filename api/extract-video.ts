@@ -12,7 +12,7 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ error: 'Missing source or episodeUrl' });
     }
     // 动态导入以捕获导入期错误
-    const { extractVideoUrl } = await import('./_server/parsers.ts');
+    const { extractVideoUrl } = await import('./_server/parsers.js');
     const videoUrl = await extractVideoUrl(source, episodeUrl);
     return res.status(200).json({ videoUrl });
   } catch (error) {

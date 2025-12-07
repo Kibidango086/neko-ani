@@ -1,7 +1,7 @@
 import fetch from 'node-fetch';
 import { JSDOM } from 'jsdom';
 import type { MediaSource, VideoSourceResult, VideoEpisode } from '../../types.js';
-import { renderPageWithBrowser, captureNetworkRequests, executeScriptInBrowser } from './browser.ts';
+import { renderPageWithBrowser, captureNetworkRequests, executeScriptInBrowser } from './browser.js';
 
 const USER_AGENTS = [
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
