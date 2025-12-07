@@ -58,10 +58,35 @@ npm run download-browsers
     - 把需要浏览器的工作迁移到自托管后端或专门云主机，并让 Vercel 函数调用该后端；
     - 在 CI 中下载 Chromium 并将二进制藏入构建产物或缓存，再在部署时通过 `CHROMIUM_EXECUTABLE_PATH` 指定其路径；
     - 若你更想简化依赖，可选择 `playwright-chromium`（仅包含 Chromium 支持，通常更小）。
+    - 若你更想简化依赖，可选择 `playwright-chromium`（仅包含 Chromium 支持，通常更小）。
 
-如果你希望，我可以：
-- 帮你把 `server/` 的 TypeScript 预编译到 `dist/server`（用于自托管场景）；或
-- 帮你把依赖切换为 `playwright-chromium` 并适配启动设置，以进一步减小体积。
+    ### 尝试在 Vercel 上运行 Playwright（风险提示）
+
+    如果你仍然希望把 Playwright 放在 Vercel 上运行，请注意这是一个高风险、易失败的方案。为了尽最大努力让它工作，这里是我已做和建议的最小变更：
+
+    - 我已把仓库的 Vercel `buildCommand` 改为先下载浏览器再构建：
+
+    ```text
+    Build Command: npm run download-browsers && npm run vercel-build
+    Output Directory: dist
+    ```
+
+    - 这会在构建阶段执行 `npx playwright install chromium` 并把浏览器二进制下载到构建环境（例如 `.cache/ms-playwright/...`），从而有可能使运行时找到浏览器二进制。
+    - 但请注意：即便二进制存在，Vercel 函数在运行时可能缺少必要的系统依赖（如 `libnss3`、`libx11` 等），这会导致 Chromium 启动失败。若日志显示缺少这些库，则需迁移到自托管环境。
+    - 若你知道构建后二进制确切路径，可以在 Vercel 的 Environment Variables 中设置（可选）:
+
+      - `CHROMIUM_EXECUTABLE_PATH` 指向 Chromium 可执行文件（例如：`.cache/ms-playwright/chromium-*/chrome`）。
+
+    - 我们在 `server/browser.ts` 中已支持 `CHROMIUM_EXECUTABLE_PATH` 环境变量；若未设置，Playwright 会尝试使用默认安装位置。
+
+    调试建议：
+
+    - 部署后到 Vercel 控制台查看函数日志（Deployments → Functions → 选择函数），搜索 `浏览器渲染错误`、`playwright` 或 `lib` 相关的错误。
+    - 若构建超时或失败，考虑把浏览器下载移到 CI，并将产物部署到支持更大体积或自定义运行时的提供商（推荐）。
+
+    如果你希望，我可以：
+    - 帮你把 `server/` 的 TypeScript 预编译到 `dist/server`（用于自托管场景）；或
+    - 帮你把依赖切换为 `playwright-chromium` 并适配启动设置，以进一步减小体积。
 
 ### 2. 同时运行前端和后端
 ```bash
