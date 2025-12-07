@@ -13,8 +13,9 @@ export default async function handler(req: any, res: any) {
     }
     // 动态导入以捕获导入期错误
     const { extractVideoUrl } = await import('./_server/parsers.js');
-    const videoUrl = await extractVideoUrl(source, episodeUrl);
-    return res.status(200).json({ videoUrl });
+    const result = await extractVideoUrl(source, episodeUrl);
+    // 返回 videoUrl 和可选的 debug 信息，便于在 Vercel 上调试
+    return res.status(200).json(result);
   } catch (error) {
     console.error('Video extraction error:', error);
     return res.status(500).json({ error: 'Failed to extract video URL', message: error?.message || String(error) });

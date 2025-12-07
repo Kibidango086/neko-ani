@@ -213,18 +213,38 @@ const findUrlInHtml = (html: string, regexStr: string): string | null => {
 export const extractVideoUrl = async (
   source: MediaSource,
   episodeUrl: string
-): Promise<string | null> => {
+): Promise<{ videoUrl: string | null; debug?: any }> => {
   const config = source.arguments.searchConfig;
-  const html = await fetchWithRetry(episodeUrl);
-  const doc = parseHtml(html);
+  const debug: any = { steps: [] };
   const origin = new URL(episodeUrl).origin;
 
-  if (config.matchVideo?.matchVideoUrl) {
-    const directMatch = findUrlInHtml(html, config.matchVideo.matchVideoUrl);
-    if (directMatch && directMatch.startsWith('http')) return cleanVideoUrl(decodeURIComponent(directMatch));
+  // Helper to push debug steps
+  const dbg = (label: string, data?: any) => {
+    try { debug.steps.push({ label, data }); } catch (e) {}
+  };
+
+  // static fetch first unless forced to use browser-first
+  let html: string | null = null;
+  let doc: Document | null = null;
+  const forceBrowserFirst = !!(process.env.FORCE_BROWSER_FIRST === '1' || config.matchVideo?.forceBrowserFirst);
+
+  if (!forceBrowserFirst) {
+    try {
+      html = await fetchWithRetry(episodeUrl);
+      doc = parseHtml(html);
+      dbg('staticFetch', { length: html.length });
+    } catch (e) {
+      dbg('staticFetchError', String(e));
+    }
   }
 
-  if (config.matchVideo?.enableNestedUrl) {
+    if (config.matchVideo?.matchVideoUrl && html) {
+    const directMatch = findUrlInHtml(html, config.matchVideo.matchVideoUrl);
+    dbg('directMatchStatic', { directMatch });
+    if (directMatch && directMatch.startsWith('http')) return { videoUrl: cleanVideoUrl(decodeURIComponent(directMatch)), debug };
+  }
+
+  if (config.matchVideo?.enableNestedUrl && doc) {
     const iframes = Array.from(doc.querySelectorAll('iframe'));
     for (const iframe of iframes) {
       const src = iframe.src;
@@ -239,68 +259,120 @@ export const extractVideoUrl = async (
       if (shouldParseFrame) {
         try {
           const frameHtml = await fetchWithRetry(fullSrc);
+          dbg('iframeStaticFetch', { iframe: fullSrc, length: frameHtml.length });
           if (config.matchVideo.matchVideoUrl) {
             const frameMatch = findUrlInHtml(frameHtml, config.matchVideo.matchVideoUrl);
-            if (frameMatch && frameMatch.startsWith('http')) return cleanVideoUrl(decodeURIComponent(frameMatch));
+            if (frameMatch && frameMatch.startsWith('http')) return { videoUrl: cleanVideoUrl(decodeURIComponent(frameMatch)), debug };
           }
           const simpleM3u8Match = frameHtml.match(/https?:\/\/[^"']+\.m3u8/);
-          if (simpleM3u8Match) return cleanVideoUrl(simpleM3u8Match[0]);
+          if (simpleM3u8Match) return { videoUrl: cleanVideoUrl(simpleM3u8Match[0]), debug };
         } catch (error) { console.warn('⚠️ iframe 获取失败:', error); }
       }
     }
   }
+  // Browser-assisted attempts (either first if forced, or fallback)
+  const tryBrowser = async (): Promise<string | null> => {
+    try {
+      dbg('browserAttemptStart', { forceBrowserFirst });
 
-  try {
-    let renderedHtml: string;
-    if (config.matchVideo?.waitForSelector) {
-      renderedHtml = await renderPageWithBrowser(episodeUrl, { waitFor: config.matchVideo.waitForSelector, timeout: 20000 });
-    } else if (config.matchVideo?.waitMs) {
-      renderedHtml = await renderPageWithBrowser(episodeUrl, { waitMs: config.matchVideo.waitMs, timeout: 20000 });
-    } else {
-      renderedHtml = await renderPageWithBrowser(episodeUrl, { waitMs: 3000, timeout: 20000 });
-    }
+      // choose waiting strategy
+      const waitFor = config.matchVideo?.waitForSelector;
+      const waitMs = config.matchVideo?.waitMs ?? 5000;
+      const timeout = config.matchVideo?.timeout ?? 30000;
 
-    const renderedDoc = parseHtml(renderedHtml);
-    if (config.matchVideo?.matchVideoUrl) {
-      const directMatch = findUrlInHtml(renderedHtml, config.matchVideo.matchVideoUrl);
-      if (directMatch && directMatch.startsWith('http')) return cleanVideoUrl(decodeURIComponent(directMatch));
-    }
+      // render page
+      const renderedHtml = await renderPageWithBrowser(episodeUrl, { waitFor, waitMs, timeout });
+      dbg('renderedLength', { length: renderedHtml.length });
 
-    if (config.matchVideo?.enableNestedUrl) {
+      // try direct regex
+      if (config.matchVideo?.matchVideoUrl) {
+        const directMatch = findUrlInHtml(renderedHtml, config.matchVideo.matchVideoUrl);
+        dbg('directMatchRendered', { directMatch });
+            if (directMatch && directMatch.startsWith('http')) return { videoUrl: cleanVideoUrl(decodeURIComponent(directMatch)), debug };
+      }
+
+      // attempt capture network requests (broad patterns first)
+      try {
+        const broadPattern = config.matchVideo?.captureNetworkPattern ? new RegExp(config.matchVideo.captureNetworkPattern) : /m3u8|\.mp4|\.ts/gi;
+        dbg('capturePattern', { pattern: broadPattern.toString() });
+        const requests = await captureNetworkRequests(episodeUrl, broadPattern, Math.max(3000, waitMs));
+        dbg('capturedRequests', { requests });
+        for (const reqUrl of requests) {
+          if (reqUrl && (reqUrl.includes('.m3u8') || reqUrl.includes('.mp4') || reqUrl.match(/https?:\/\/.*\/.*\.ts/))) {
+            return { videoUrl: cleanVideoUrl(reqUrl), debug };
+          }
+        }
+      } catch (e) { dbg('captureError', String(e)); }
+
+      // attempt to execute custom extractor script in page if provided
+      if (config.matchVideo?.extractFunction) {
+        try {
+          dbg('executeScriptStart');
+          const result = await executeScriptInBrowser(episodeUrl, config.matchVideo.extractFunction, waitMs);
+          dbg('executeScriptResult', { result });
+          if (typeof result === 'string' && (result.includes('.m3u8') || result.includes('.mp4') || result.startsWith('http'))) {
+            return { videoUrl: cleanVideoUrl(result), debug };
+          }
+          if (result && Array.isArray(result)) {
+            const candidate = result.find((r: any) => typeof r === 'string' && (r.includes('.m3u8') || r.includes('.mp4')));
+            if (candidate) return { videoUrl: cleanVideoUrl(candidate), debug };
+          }
+        } catch (e) { dbg('executeScriptError', String(e)); }
+      }
+
+      // search rendered iframes
+      const renderedDoc = parseHtml(renderedHtml);
       const iframes = Array.from(renderedDoc.querySelectorAll('iframe'));
+      dbg('renderedIframes', { count: iframes.length });
       for (const iframe of iframes) {
         const src = iframe.src;
         if (!src) continue;
         let fullSrc = src;
         try { fullSrc = new URL(src, origin).href; } catch (e) { continue; }
-        if (fullSrc.includes('.m3u8') || fullSrc.includes('.mp4')) return cleanVideoUrl(fullSrc);
+        if (fullSrc.includes('.m3u8') || fullSrc.includes('.mp4')) return { videoUrl: cleanVideoUrl(fullSrc), debug };
         let shouldParseFrame = false;
         if (config.matchVideo.matchNestedUrl) {
           try { const nestRegex = new RegExp(config.matchVideo.matchNestedUrl); if (nestRegex.test(fullSrc)) shouldParseFrame = true; } catch (e) {}
         } else { if (fullSrc.includes('player') || fullSrc.includes('video')) shouldParseFrame = true; }
         if (shouldParseFrame) {
           try {
-            const frameHtml = await renderPageWithBrowser(fullSrc, { waitMs: 2000, timeout: 15000 });
+            const frameHtml = await renderPageWithBrowser(fullSrc, { waitMs: 2000, timeout: Math.min(20000, timeout) });
+            dbg('iframeRendered', { src: fullSrc, length: frameHtml.length });
             if (config.matchVideo.matchVideoUrl) {
               const frameMatch = findUrlInHtml(frameHtml, config.matchVideo.matchVideoUrl);
-              if (frameMatch && frameMatch.startsWith('http')) return cleanVideoUrl(decodeURIComponent(frameMatch));
+              if (frameMatch && frameMatch.startsWith('http')) return { videoUrl: cleanVideoUrl(decodeURIComponent(frameMatch)), debug };
             }
             const simpleM3u8Match = frameHtml.match(/https?:\/\/[^"']+\.m3u8/);
-            if (simpleM3u8Match) return cleanVideoUrl(simpleM3u8Match[0]);
-          } catch (error) { console.warn('⚠️ 浏览器渲染 iframe 失败:', error); }
+            if (simpleM3u8Match) return { videoUrl: cleanVideoUrl(simpleM3u8Match[0]), debug };
+          } catch (error) { dbg('iframeRenderError', String(error)); }
         }
       }
-    }
 
-    if (config.matchVideo?.captureNetworkPattern) {
-      try {
-        const pattern = new RegExp(config.matchVideo.captureNetworkPattern);
-        const requests = await captureNetworkRequests(episodeUrl, pattern, 3000);
-        if (requests.length > 0) return cleanVideoUrl(requests[0]);
-      } catch (error) { console.warn('⚠️ 网络捕获失败:', error); }
+    } catch (error) {
+      dbg('browserAttemptError', String(error));
+      console.error('❌ 浏览器渲染错误:', error);
     }
-  } catch (error) { console.error('❌ 浏览器渲染错误:', error); }
+    return null;
+  };
 
-  console.warn('❌ 未能找到视频 URL');
+  // If forced, try browser first
+  if (forceBrowserFirst) {
+    const r = await tryBrowser();
+    if (r) return r;
+  }
+
+  // If static checks above didn't find, try browser fallback
+  const browserResult = await tryBrowser();
+  if (browserResult) return browserResult;
+
+  // final fallback: if we had static html, try broad m3u8 search
+  if (html) {
+    const broad = html.match(/https?:\/\/[^"']+\.(m3u8|mp4)/g);
+    dbg('finalStaticBroad', { found: broad && broad.length });
+    if (broad && broad.length > 0) return cleanVideoUrl(broad[0]);
+  }
+
+  dbg('notFound');
+  console.warn('❌ 未能找到视频 URL', debug);
   return null;
 };
