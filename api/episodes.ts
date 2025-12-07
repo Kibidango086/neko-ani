@@ -1,5 +1,3 @@
-import { getEpisodes } from '../server/parsers.ts';
-
 export default async function handler(req: any, res: any) {
   try {
     if (req.method !== 'POST') {
@@ -13,7 +11,8 @@ export default async function handler(req: any, res: any) {
     if (!source || !detailUrl) {
       return res.status(400).json({ error: 'Missing source or detailUrl' });
     }
-
+    // 动态导入以捕获导入期错误
+    const { getEpisodes } = await import('../server/parsers.ts');
     const episodes = await getEpisodes(source, detailUrl);
     return res.status(200).json(episodes);
   } catch (error) {
