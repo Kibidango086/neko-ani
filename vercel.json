@@ -1,13 +1,13 @@
 {
   "version": 2,
-  "builds": [
-    { "src": "package.json", "use": "@vercel/static-build", "config": { "distDir": "dist" } },
-    { "src": "api/**/*.ts", "use": "@vercel/node" }
-  ],
+  
+  "builds": [],
   "routes": [
     { "src": "/api/(.*)", "dest": "/api/$1.ts" },
     { "src": "/(.*)", "dest": "/$1" }
   ],
+  "buildCommand": "npm run vercel-build",
+  "outputDirectory": "dist",
   "functions": {
     "api/**.ts": {
       "runtime": "nodejs18.x",
