@@ -12,7 +12,7 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ error: 'Missing source or keyword' });
     }
     // 动态导入解析模块以捕获导入期错误
-    const { searchSource } = await import('../server/parsers.ts');
+    const { searchSource } = await import('./_server/parsers.ts');
     const results = await searchSource(source, keyword);
     return res.status(200).json(results);
   } catch (error) {
