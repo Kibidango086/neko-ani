@@ -5,7 +5,16 @@
     { "src": "/api/(.*)", "dest": "/api/$1.ts" },
     { "src": "/(.*)", "dest": "/$1" }
   ],
-  "buildCommand": "npm run download-browsers && npm run vercel-build",
-  "outputDirectory": "dist"
+  "buildCommand": "PLAYWRIGHT_BROWSERS_PATH=./browsers npx playwright install chromium && npm run vercel-build",
+  "outputDirectory": "dist",
+  "functions": {
+    "api/**/*.ts": {
+      "runtime": "nodejs18.x",
+      "includeFiles": "./browsers/**",
+      "env": {
+        "PLAYWRIGHT_BROWSERS_PATH": "./browsers"
+      }
+    }
+  }
 
 }
