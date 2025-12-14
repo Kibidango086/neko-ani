@@ -1,6 +1,8 @@
 {
   "version": 2,
-  
+  "env": {
+    "PLAYWRIGHT_BROWSERS_PATH": "./browsers"
+  },
   "routes": [
     { "src": "/api/(.*)", "dest": "/api/$1.ts" },
     { "src": "/(.*)", "dest": "/$1" }
@@ -10,10 +12,7 @@
   "functions": {
     "api/**/*.ts": {
       "runtime": "nodejs18.x",
-      "includeFiles": "./browsers/**",
-      "env": {
-        "PLAYWRIGHT_BROWSERS_PATH": "./browsers"
-      }
+      "includeFiles": "./browsers/**"
     }
   }
 
