@@ -20,7 +20,7 @@ export default async function handler(req: any, res: any) {
     }
 
     const body = req.body || (await parseJson(req));
-    const { source, episodeUrl } = body || {};
+    const { source, episodeUrl, browserlessEndpoint } = body || {};
 
     if (!source || !episodeUrl) {
       return res.status(400).json({ error: 'Missing source or episodeUrl' });
@@ -28,18 +28,18 @@ export default async function handler(req: any, res: any) {
 
     console.log(`Extracting: ${episodeUrl}`);
 
-    // 1. Attempt Local Extraction (Static only)
+    // 1. Attempt Serverless Extraction (Static + Browserless)
     try {
         const { extractVideoUrl } = await import('./_server/parsers.js');
-        const localResult = await extractVideoUrl(source, episodeUrl);
+        const localResult = await extractVideoUrl(source, episodeUrl, browserlessEndpoint);
         
         if (localResult && localResult.videoUrl) {
-            console.log('Local extraction successful:', localResult.videoUrl);
+            console.log('Serverless extraction successful:', localResult.videoUrl);
             return res.status(200).json(localResult);
         }
-        console.log('Local extraction failed, trying remote...');
+        console.log('Serverless extraction failed, trying remote fallback...');
     } catch (localError) {
-        console.warn('Local extraction error:', localError);
+        console.warn('Serverless extraction error:', localError);
         // Continue to remote
     }
 

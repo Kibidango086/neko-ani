@@ -55,9 +55,12 @@ export interface SearchConfig {
     cookies?: string;
     // 浏览器渲染选项（用于动态加载的视频 URL）
     useBrowserRender?: boolean; // 强制使用浏览器渲染
+    forceBrowserFirst?: boolean;
     waitForSelector?: string; // 等待特定 CSS 选择器出现
     waitMs?: number; // 等待毫秒数
+    timeout?: number;
     captureNetworkPattern?: string; // 捕获匹配该正则的网络请求 URL
+    extractFunction?: string; // JavaScript snippet to execute in browser context
   };
 }
 

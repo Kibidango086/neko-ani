@@ -1,9 +1,21 @@
 import { MediaSource, VideoSourceResult, VideoEpisode } from '../types';
 
 // Backend API base URL
-const API_BASE = process.env.NODE_ENV === 'production' 
-  ? '/api'  // In production, use relative path (assumes backend is served from same domain)
-  : 'http://localhost:3001/api';  // In dev, use explicit backend URL
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
+
+// Helper to pick a random browserless endpoint
+const getBrowserlessEndpoint = (): string | undefined => {
+    try {
+        const stored = localStorage.getItem('browserless_endpoints');
+        if (stored) {
+            const endpoints = JSON.parse(stored);
+            if (Array.isArray(endpoints) && endpoints.length > 0) {
+                return endpoints[Math.floor(Math.random() * endpoints.length)];
+            }
+        }
+    } catch (e) { console.error('Error reading browserless endpoints', e); }
+    return undefined;
+};
 
 // Helper to call backend API
 const callBackendApi = async <T>(
@@ -64,9 +76,11 @@ export const extractVideoUrl = async (
     episodeUrl: string
 ): Promise<string | null> => {
     try {
+      const browserlessEndpoint = getBrowserlessEndpoint();
       const result = await callBackendApi<{ videoUrl: string | null }>('/extract-video', {
         source,
         episodeUrl,
+        browserlessEndpoint,
       });
       return result.videoUrl;
     } catch (error) {
