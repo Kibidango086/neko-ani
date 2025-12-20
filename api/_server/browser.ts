@@ -1,8 +1,5 @@
 import fetch from 'node-fetch';
 
-/**
- * Helper to get the correct Browserless API endpoint with optional query params
- */
 const getEndpoint = (tokenOrUrl: string | undefined, path: string, params: Record<string, string | number> = {}): string => {
   const raw = tokenOrUrl || process.env.BROWSERLESS_URL;
   if (!raw) throw new Error('Browserless Token/URL not configured');
@@ -17,16 +14,13 @@ const getEndpoint = (tokenOrUrl: string | undefined, path: string, params: Recor
     let url = raw;
     if (url.startsWith('wss://')) url = url.replace('wss://', 'https://');
     if (url.startsWith('ws://')) url = url.replace('ws://', 'http://');
-    
     try {
         const urlObj = new URL(url);
         urlObj.pathname = path;
         token = urlObj.searchParams.get('token') || '';
-        urlObj.search = ''; // Clear existing params to rebuild
+        urlObj.search = '';
         baseUrl = urlObj.toString();
-    } catch (e) {
-        baseUrl = url.replace(/\?(.*)$/, '') + path;
-    }
+    } catch (e) { baseUrl = url.replace(/\?(.*)$/, '') + path; }
   }
 
   const query = new URLSearchParams();
@@ -34,111 +28,103 @@ const getEndpoint = (tokenOrUrl: string | undefined, path: string, params: Recor
   for (const [key, val] of Object.entries(params)) {
     if (val !== undefined && val !== null) query.set(key, String(val));
   }
-
   const queryString = query.toString();
   return queryString ? `${baseUrl}?${queryString}` : baseUrl;
 };
 
-export const renderPageWithBrowser = async (
-  url: string,
-  options: { waitFor?: string; waitMs?: number; timeout?: number; browserWSEndpoint?: string } = {}
-): Promise<string> => {
-    // timeout 必须作为查询参数传递，不能放在 body 中
-    const endpoint = getEndpoint(options.browserWSEndpoint, '/content', {
-        timeout: options.timeout || 30000
-    });
-    
-    console.log(`Calling Browserless /content: ${endpoint.replace(/token=[^&]+/, 'token=***')}`);
+export interface BrowserResult {
+    html: string;
+    capturedUrls: string[];
+    scriptResult?: any;
+}
 
-    const body: any = { url };
-    if (options.waitFor) body.waitForSelector = options.waitFor;
-
-    const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-    });
-
-    if (!response.ok) {
-        const text = await response.text();
-        throw new Error(`Browserless Content Error (${response.status}): ${text}`);
-    }
-
-    let html = await response.text();
-    
-    // 如果有额外的等待时间，/content 接口不支持 waitMs，只能在后续通过 /function 处理或者在这里接受结果
-    // 注意：/content 本身是渲染完即返回的。
-    return html;
-};
-
-export const captureNetworkRequests = async (
-  url: string,
-  pattern: RegExp,
-  waitMs: number = 3000,
-  browserWSEndpoint?: string
-): Promise<string[]> => {
+/**
+ * Perform a smart extraction in one single Browserless call
+ */
+export const smartBrowserExtract = async (
+    url: string,
+    options: { 
+        waitFor?: string; 
+        waitMs?: number; 
+        timeout?: number; 
+        browserWSEndpoint?: string;
+        capturePattern?: string;
+        script?: string;
+    } = {}
+): Promise<BrowserResult> => {
     const code = `async ({ page, context }) => {
-  const { url, waitMs, patternStr } = context;
-  const urls = [];
-  const regex = new RegExp(patternStr);
+  const { url, waitFor, waitMs, timeout, capturePattern, script } = context;
+  const capturedUrls = [];
+  
+  // Set realistic User Agent
+  await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
+  
+  // Setup Network Interception
   await page.setRequestInterception(true);
   page.on('request', r => {
     const u = r.url();
-    if (regex.test(u)) urls.push(u);
+    if (capturePattern && new RegExp(capturePattern, 'i').test(u)) {
+        capturedUrls.push(u);
+    } else if (!capturePattern && (u.includes('.m3u8') || u.includes('.mp4') || u.includes('.ts'))) {
+        capturedUrls.push(u);
+    }
     r.continue();
   });
-  try { await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 }); } catch (e) {}
-  await new Promise(r => setTimeout(r, waitMs));
-  return urls;
+
+  try {
+    await page.goto(url, { waitUntil: 'networkidle2', timeout: timeout || 30000 });
+  } catch (e) {
+    // If navigation fails, we might still have captured some URLs
+  }
+
+  if (waitFor) {
+    try { await page.waitForSelector(waitFor, { timeout: 5000 }); } catch (e) {}
+  }
+
+  if (waitMs) {
+    await new Promise(r => setTimeout(r, waitMs));
+  }
+
+  let scriptResult = null;
+  if (script) {
+    try {
+        scriptResult = await page.evaluate((s) => {
+            try { return eval('(function() { ' + s + ' })()'); } catch (e) { return null; }
+        }, script);
+    } catch (e) {}
+  }
+
+  return {
+    html: await page.content(),
+    capturedUrls,
+    scriptResult
+  };
 }`;
 
-    const endpoint = getEndpoint(browserWSEndpoint, '/function');
+    const endpoint = getEndpoint(options.browserWSEndpoint, '/function');
     const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             code,
-            context: { url, waitMs, patternStr: pattern.source }
+            context: { 
+                url, 
+                waitFor: options.waitFor, 
+                waitMs: options.waitMs || 3000, 
+                timeout: options.timeout,
+                capturePattern: options.capturePattern,
+                script: options.script
+            }
         })
     });
 
-    if (!response.ok) {
-        const text = await response.text();
-        throw new Error(`Browserless Function Error: ${text}`);
-    }
-
-    return await response.json() as string[];
+    if (!response.ok) throw new Error(`Browserless Error: ${await response.text()}`);
+    return await response.json() as BrowserResult;
 };
 
-export const executeScriptInBrowser = async (
-    url: string,
-    script: string,
-    waitMs: number = 2000,
-    browserWSEndpoint?: string
-): Promise<any> => {
-    const code = `async ({ page, context }) => {
-  const { url, waitMs, script } = context;
-  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
-  await new Promise(r => setTimeout(r, waitMs));
-  return await page.evaluate((s) => {
-    try { return eval('(function() { ' + s + ' })()'); } catch (e) { return null; }
-  }, script);
-}`;
-
-    const endpoint = getEndpoint(browserWSEndpoint, '/function');
-    const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            code,
-            context: { url, waitMs, script }
-        })
-    });
-
-    if (!response.ok) {
-        const text = await response.text();
-        throw new Error(`Browserless Function Error: ${text}`);
-    }
-
-    return await response.json();
-}
+// Keep old exports for compatibility but redirect them to smartBrowserExtract or maintain simple versions
+export const renderPageWithBrowser = async (url: string, opts: any) => (await smartBrowserExtract(url, opts)).html;
+export const captureNetworkRequests = async (url: string, pattern: RegExp, waitMs: number, endpoint?: string) => 
+    (await smartBrowserExtract(url, { capturePattern: pattern.source, waitMs, browserWSEndpoint: endpoint })).capturedUrls;
+export const executeScriptInBrowser = async (url: string, script: string, waitMs: number, endpoint?: string) => 
+    (await smartBrowserExtract(url, { script, waitMs, browserWSEndpoint: endpoint })).scriptResult;
