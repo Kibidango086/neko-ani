@@ -57,7 +57,7 @@ export const Details: React.FC = () => {
 
             // 如果开启了脚本模式，注入自定义 Loader
             if (useUserscript) {
-                console.log('🚀 Using Userscript Bridge for HLS');
+                console.log('🚀 Checking for Userscript Bridge...');
                 
                 class UserscriptLoader extends (Hls.DefaultConfig.loader as any) {
                     constructor(config: any) {
@@ -68,12 +68,19 @@ export const Details: React.FC = () => {
                             if (bridge) {
                                 bridge.fetch(context.url, { responseType: 'arraybuffer' })
                                     .then((res: any) => {
-                                        callbacks.onSuccess({ data: res.data, url: context.url }, context, config);
+                                        // 构造 HLS.js 期望的响应格式
+                                        callbacks.onSuccess({ 
+                                            data: res.data, 
+                                            url: context.url,
+                                            code: res.status 
+                                        }, context, config);
                                     })
                                     .catch((err: any) => {
+                                        console.error('Bridge load failed:', err);
                                         callbacks.onError(err, context, config);
                                     });
                             } else {
+                                console.warn('⚠️ Userscript mode enabled but bridge NOT found! Falling back to standard fetch.');
                                 loadInternal(context, config, callbacks);
                             }
                         };
