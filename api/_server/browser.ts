@@ -72,34 +72,24 @@ export const renderPageWithBrowser = async (
   options: { waitFor?: string; waitMs?: number; timeout?: number; browserWSEndpoint?: string } = {}
 ): Promise<string> => {
     // Puppeteer script to run on Browserless server
-    // Wrapped in IIFE to support both module.exports and direct return
+    // Direct Async Function Expression - No module.exports
     const code = `
-        (() => {
-            const handler = async ({ page, context }) => {
-                const { url, waitFor, waitMs, timeout } = context;
-                await page.goto(url, { waitUntil: 'domcontentloaded', timeout: timeout || 30000 });
-                
-                if (waitFor) {
-                    try {
-                        await page.waitForSelector(waitFor, { timeout: 5000 });
-                    } catch(e) {}
-                }
-                
-                if (waitMs) {
-                    await page.waitForTimeout(waitMs);
-                }
-                
-                return await page.content();
-            };
+        async ({ page, context }) => {
+            const { url, waitFor, waitMs, timeout } = context;
+            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: timeout || 30000 });
             
-            try {
-                if (typeof module !== 'undefined') {
-                    module.exports = handler;
-                }
-            } catch (e) {}
+            if (waitFor) {
+                try {
+                    await page.waitForSelector(waitFor, { timeout: 5000 });
+                } catch(e) {}
+            }
             
-            return handler;
-        })();
+            if (waitMs) {
+                await page.waitForTimeout(waitMs);
+            }
+            
+            return await page.content();
+        }
     `;
 
     return await callBrowserlessFunction(options.browserWSEndpoint, code, {
@@ -116,40 +106,31 @@ export const captureNetworkRequests = async (
   waitMs: number = 3000,
   browserWSEndpoint?: string
 ): Promise<string[]> => {
+    // Direct Async Function Expression
     const code = `
-        (() => {
-            const handler = async ({ page, context }) => {
-                const { url, waitMs, patternStr } = context;
-                const urls = [];
-                const regex = new RegExp(patternStr); // Reconstruct regex
-                
-                await page.setRequestInterception(true);
-                page.on('request', req => {
-                    const u = req.url();
-                    if (regex.test(u)) {
-                        urls.push(u);
-                    }
-                    req.continue();
-                });
-
-                try {
-                    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
-                } catch (e) {
-                    // Ignore nav errors if we captured requests
+        async ({ page, context }) => {
+            const { url, waitMs, patternStr } = context;
+            const urls = [];
+            const regex = new RegExp(patternStr); // Reconstruct regex
+            
+            await page.setRequestInterception(true);
+            page.on('request', req => {
+                const u = req.url();
+                if (regex.test(u)) {
+                    urls.push(u);
                 }
-                
-                await page.waitForTimeout(waitMs);
-                return urls;
-            };
+                req.continue();
+            });
 
             try {
-                if (typeof module !== 'undefined') {
-                    module.exports = handler;
-                }
-            } catch (e) {}
-
-            return handler;
-        })();
+                await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
+            } catch (e) {
+                // Ignore nav errors if we captured requests
+            }
+            
+            await page.waitForTimeout(waitMs);
+            return urls;
+        }
     `;
 
     return await callBrowserlessFunction(browserWSEndpoint, code, {
@@ -165,33 +146,24 @@ export const executeScriptInBrowser = async (
     waitMs: number = 2000,
     browserWSEndpoint?: string
 ): Promise<any> => {
+    // Direct Async Function Expression
     const code = `
-        (() => {
-            const handler = async ({ page, context }) => {
-                const { url, waitMs, script } = context;
-                await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
-                await page.waitForTimeout(waitMs);
-                
-                // Execute the client-side script
-                const result = await page.evaluate((s) => {
-                     try {
-                        return eval('(function() { ' + s + ' })()');
-                     } catch (e) {
-                        return null;
-                     }
-                }, script);
-                
-                return result;
-            };
-
-            try {
-                if (typeof module !== 'undefined') {
-                    module.exports = handler;
-                }
-            } catch (e) {}
-
-            return handler;
-        })();
+        async ({ page, context }) => {
+            const { url, waitMs, script } = context;
+            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
+            await page.waitForTimeout(waitMs);
+            
+            // Execute the client-side script
+            const result = await page.evaluate((s) => {
+                 try {
+                    return eval('(function() { ' + s + ' })()');
+                 } catch (e) {
+                    return null;
+                 }
+            }, script);
+            
+            return result;
+        }
     `;
 
     return await callBrowserlessFunction(browserWSEndpoint, code, {
