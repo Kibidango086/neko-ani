@@ -42,6 +42,7 @@ const callBrowserlessFunction = async (
     context: any
 ): Promise<any> => {
     const endpoint = getFunctionEndpoint(browserWSEndpoint);
+    // Log masked endpoint for debugging
     console.log(`Calling Browserless HTTP: ${endpoint.replace(/token=[^&]+/, 'token=***')}`);
 
     const response = await fetch(endpoint, {
@@ -71,8 +72,9 @@ export const renderPageWithBrowser = async (
   options: { waitFor?: string; waitMs?: number; timeout?: number; browserWSEndpoint?: string } = {}
 ): Promise<string> => {
     // Puppeteer script to run on Browserless server
+    // Refactored to handle environments where module is not defined
     const code = `
-        module.exports = async ({ page, context }) => {
+        const handler = async ({ page, context }) => {
             const { url, waitFor, waitMs, timeout } = context;
             await page.goto(url, { waitUntil: 'domcontentloaded', timeout: timeout || 30000 });
             
@@ -88,6 +90,8 @@ export const renderPageWithBrowser = async (
             
             return await page.content();
         };
+        if (typeof module !== 'undefined') { module.exports = handler; }
+        handler;
     `;
 
     return await callBrowserlessFunction(options.browserWSEndpoint, code, {
@@ -105,7 +109,7 @@ export const captureNetworkRequests = async (
   browserWSEndpoint?: string
 ): Promise<string[]> => {
     const code = `
-        module.exports = async ({ page, context }) => {
+        const handler = async ({ page, context }) => {
             const { url, waitMs, patternStr } = context;
             const urls = [];
             const regex = new RegExp(patternStr); // Reconstruct regex
@@ -128,6 +132,8 @@ export const captureNetworkRequests = async (
             await page.waitForTimeout(waitMs);
             return urls;
         };
+        if (typeof module !== 'undefined') { module.exports = handler; }
+        handler;
     `;
 
     return await callBrowserlessFunction(browserWSEndpoint, code, {
@@ -144,7 +150,7 @@ export const executeScriptInBrowser = async (
     browserWSEndpoint?: string
 ): Promise<any> => {
     const code = `
-        module.exports = async ({ page, context }) => {
+        const handler = async ({ page, context }) => {
             const { url, waitMs, script } = context;
             await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
             await page.waitForTimeout(waitMs);
@@ -164,6 +170,8 @@ export const executeScriptInBrowser = async (
             
             return result;
         };
+        if (typeof module !== 'undefined') { module.exports = handler; }
+        handler;
     `;
 
     return await callBrowserlessFunction(browserWSEndpoint, code, {
