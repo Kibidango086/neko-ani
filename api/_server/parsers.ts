@@ -75,10 +75,10 @@ const findUrlInHtml = (html: string, regexStr: string): string | null => {
     if (match) {
       if ((match as any).groups && (match as any).groups['v']) {
         const v = (match as any).groups['v'];
-        return v.replace(/\\//g, '/');
+        return v.replace(/\\\//g, '/');
       }
-      if (match.length > 1 && match[1]) return match[1].replace(/\\//g, '/');
-      return match[0].replace(/\\//g, '/');
+      if (match.length > 1 && match[1]) return match[1].replace(/\\\//g, '/');
+      return match[0].replace(/\\\//g, '/');
     }
   } catch (e) { console.error('Regex error:', e); }
   return null;
@@ -86,7 +86,7 @@ const findUrlInHtml = (html: string, regexStr: string): string | null => {
 
 const cleanVideoUrl = (url: string): string => {
   if (!url) return url;
-  const matches = Array.from(url.matchAll(/https?:///g));
+  const matches = Array.from(url.matchAll(/https?:\/\//g));
   if (matches.length > 1) {
     const lastMatch = matches[matches.length - 1];
     if (lastMatch.index !== undefined) {
