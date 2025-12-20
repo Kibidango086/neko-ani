@@ -1,7 +1,6 @@
 import fetch from 'node-fetch';
 import { JSDOM } from 'jsdom';
 import type { MediaSource, VideoSourceResult, VideoEpisode } from '../../types.js';
-import { renderPageWithBrowser, captureNetworkRequests, executeScriptInBrowser } from './browser.js';
 
 const USER_AGENTS = [
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -68,6 +67,22 @@ const parseHtml = (html: string) => {
 const getTxt = (el: Element | null) => el?.textContent?.trim() || '';
 const getAttr = (el: Element | null, attr: string) => el?.getAttribute(attr) || '';
 
+const findUrlInHtml = (html: string, regexStr: string): string | null => {
+  try {
+    const regex = new RegExp(regexStr);
+    const match = html.match(regex);
+    if (match) {
+      if ((match as any).groups && (match as any).groups['v']) {
+        const v = (match as any).groups['v'];
+        return v.replace(/\\\//g, '/');
+      }
+      if (match.length > 1 && match[1]) return match[1].replace(/\\\//g, '/');
+      return match[0].replace(/\\\//g, '/');
+    }
+  } catch (e) { console.error('Regex error:', e); }
+  return null;
+};
+
 const cleanVideoUrl = (url: string): string => {
   if (!url) return url;
   const matches = Array.from(url.matchAll(/https?:\/\//g));
@@ -78,6 +93,84 @@ const cleanVideoUrl = (url: string): string => {
     }
   }
   return url;
+};
+
+export const extractVideoUrl = async (
+  source: MediaSource,
+  episodeUrl: string
+): Promise<{ videoUrl: string | null; debug?: any }> => {
+  const config = source.arguments.searchConfig;
+  const debug: any = { steps: [] };
+  const origin = new URL(episodeUrl).origin;
+
+  // Helper to push debug steps
+  const dbg = (label: string, data?: any) => {
+    try { debug.steps.push({ label, data }); } catch (e) {}
+  };
+
+  let html: string | null = null;
+  let doc: Document | null = null;
+
+  try {
+    html = await fetchWithRetry(episodeUrl);
+    doc = parseHtml(html);
+    dbg('staticFetch', { length: html.length });
+  } catch (e) {
+    dbg('staticFetchError', String(e));
+    return { videoUrl: null, debug };
+  }
+
+  // 1. Direct Regex Match
+  if (config.matchVideo?.matchVideoUrl && html) {
+    const directMatch = findUrlInHtml(html, config.matchVideo.matchVideoUrl);
+    dbg('directMatchStatic', { directMatch });
+    if (directMatch && directMatch.startsWith('http')) return { videoUrl: cleanVideoUrl(decodeURIComponent(directMatch)), debug };
+  }
+
+  // 2. Broad M3U8/MP4 Match in main page
+  if (html) {
+      const broad = html.match(/https?:\/\/[^"']+\.(m3u8|mp4)/g);
+      dbg('broadMatchStatic', { found: broad && broad.length });
+      if (broad && broad.length > 0) return { videoUrl: cleanVideoUrl(broad[0]), debug };
+  }
+
+  // 3. Iframe/Nested Checks
+  if (config.matchVideo?.enableNestedUrl && doc) {
+    const iframes = Array.from(doc.querySelectorAll('iframe'));
+    for (const iframe of iframes) {
+      const src = iframe.src;
+      if (!src) continue;
+      let fullSrc = src;
+      try { fullSrc = new URL(src, origin).href; } catch (e) { continue; }
+      
+      // Direct iframe src check
+      if (fullSrc.includes('.m3u8') || fullSrc.includes('.mp4')) return { videoUrl: cleanVideoUrl(fullSrc), debug };
+      
+      let shouldParseFrame = false;
+      if (config.matchVideo.matchNestedUrl) {
+        try { const nestRegex = new RegExp(config.matchVideo.matchNestedUrl); if (nestRegex.test(fullSrc)) shouldParseFrame = true; } catch (e) {}
+      } else { 
+          // Default heuristic
+          if (fullSrc.includes('player') || fullSrc.includes('video') || fullSrc.includes('api.php')) shouldParseFrame = true; 
+      }
+      
+      if (shouldParseFrame) {
+        try {
+          const frameHtml = await fetchWithRetry(fullSrc);
+          dbg('iframeStaticFetch', { iframe: fullSrc, length: frameHtml.length });
+          
+          if (config.matchVideo.matchVideoUrl) {
+            const frameMatch = findUrlInHtml(frameHtml, config.matchVideo.matchVideoUrl);
+            if (frameMatch && frameMatch.startsWith('http')) return { videoUrl: cleanVideoUrl(decodeURIComponent(frameMatch)), debug };
+          }
+          const simpleM3u8Match = frameHtml.match(/https?:\/\/[^"']+\.(m3u8|mp4)/);
+          if (simpleM3u8Match) return { videoUrl: cleanVideoUrl(simpleM3u8Match[0]), debug };
+        } catch (error) { dbg('iframeError', String(error)); }
+      }
+    }
+  }
+
+  return { videoUrl: null, debug };
 };
 
 export const searchSource = async (
@@ -192,187 +285,4 @@ export const getEpisodes = async (
   } catch (e) { console.error('Parse error in getEpisodes:', e); }
 
   return episodes;
-};
-
-const findUrlInHtml = (html: string, regexStr: string): string | null => {
-  try {
-    const regex = new RegExp(regexStr);
-    const match = html.match(regex);
-    if (match) {
-      if ((match as any).groups && (match as any).groups['v']) {
-        const v = (match as any).groups['v'];
-        return v.replace(/\\\//g, '/');
-      }
-      if (match.length > 1 && match[1]) return match[1].replace(/\\\//g, '/');
-      return match[0].replace(/\\\//g, '/');
-    }
-  } catch (e) { console.error('Regex error:', e); }
-  return null;
-};
-
-export const extractVideoUrl = async (
-  source: MediaSource,
-  episodeUrl: string
-): Promise<{ videoUrl: string | null; debug?: any }> => {
-  const config = source.arguments.searchConfig;
-  const debug: any = { steps: [] };
-  const origin = new URL(episodeUrl).origin;
-
-  // Helper to push debug steps
-  const dbg = (label: string, data?: any) => {
-    try { debug.steps.push({ label, data }); } catch (e) {}
-  };
-
-  // static fetch first unless forced to use browser-first
-  let html: string | null = null;
-  let doc: Document | null = null;
-  const forceBrowserFirst = !!(process.env.FORCE_BROWSER_FIRST === '1' || config.matchVideo?.forceBrowserFirst);
-
-  if (!forceBrowserFirst) {
-    try {
-      html = await fetchWithRetry(episodeUrl);
-      doc = parseHtml(html);
-      dbg('staticFetch', { length: html.length });
-    } catch (e) {
-      dbg('staticFetchError', String(e));
-    }
-  }
-
-    if (config.matchVideo?.matchVideoUrl && html) {
-    const directMatch = findUrlInHtml(html, config.matchVideo.matchVideoUrl);
-    dbg('directMatchStatic', { directMatch });
-    if (directMatch && directMatch.startsWith('http')) return { videoUrl: cleanVideoUrl(decodeURIComponent(directMatch)), debug };
-  }
-
-  if (config.matchVideo?.enableNestedUrl && doc) {
-    const iframes = Array.from(doc.querySelectorAll('iframe'));
-    for (const iframe of iframes) {
-      const src = iframe.src;
-      if (!src) continue;
-      let fullSrc = src;
-      try { fullSrc = new URL(src, origin).href; } catch (e) { continue; }
-      if (fullSrc.includes('.m3u8') || fullSrc.includes('.mp4')) return cleanVideoUrl(fullSrc);
-      let shouldParseFrame = false;
-      if (config.matchVideo.matchNestedUrl) {
-        try { const nestRegex = new RegExp(config.matchVideo.matchNestedUrl); if (nestRegex.test(fullSrc)) shouldParseFrame = true; } catch (e) {}
-      } else { if (fullSrc.includes('player') || fullSrc.includes('video')) shouldParseFrame = true; }
-      if (shouldParseFrame) {
-        try {
-          const frameHtml = await fetchWithRetry(fullSrc);
-          dbg('iframeStaticFetch', { iframe: fullSrc, length: frameHtml.length });
-          if (config.matchVideo.matchVideoUrl) {
-            const frameMatch = findUrlInHtml(frameHtml, config.matchVideo.matchVideoUrl);
-            if (frameMatch && frameMatch.startsWith('http')) return { videoUrl: cleanVideoUrl(decodeURIComponent(frameMatch)), debug };
-          }
-          const simpleM3u8Match = frameHtml.match(/https?:\/\/[^"']+\.m3u8/);
-          if (simpleM3u8Match) return { videoUrl: cleanVideoUrl(simpleM3u8Match[0]), debug };
-        } catch (error) { console.warn('⚠️ iframe 获取失败:', error); }
-      }
-    }
-  }
-  // Browser-assisted attempts (either first if forced, or fallback)
-  const tryBrowser = async (): Promise<string | null> => {
-    try {
-      dbg('browserAttemptStart', { forceBrowserFirst });
-
-      // choose waiting strategy
-      const waitFor = config.matchVideo?.waitForSelector;
-      const waitMs = config.matchVideo?.waitMs ?? 5000;
-      const timeout = config.matchVideo?.timeout ?? 30000;
-
-      // render page
-      const renderedHtml = await renderPageWithBrowser(episodeUrl, { waitFor, waitMs, timeout });
-      dbg('renderedLength', { length: renderedHtml.length });
-
-      // try direct regex
-      if (config.matchVideo?.matchVideoUrl) {
-        const directMatch = findUrlInHtml(renderedHtml, config.matchVideo.matchVideoUrl);
-        dbg('directMatchRendered', { directMatch });
-            if (directMatch && directMatch.startsWith('http')) return { videoUrl: cleanVideoUrl(decodeURIComponent(directMatch)), debug };
-      }
-
-      // attempt capture network requests (broad patterns first)
-      try {
-        const broadPattern = config.matchVideo?.captureNetworkPattern ? new RegExp(config.matchVideo.captureNetworkPattern) : /m3u8|\.mp4|\.ts/gi;
-        dbg('capturePattern', { pattern: broadPattern.toString() });
-        const requests = await captureNetworkRequests(episodeUrl, broadPattern, Math.max(3000, waitMs));
-        dbg('capturedRequests', { requests });
-        for (const reqUrl of requests) {
-          if (reqUrl && (reqUrl.includes('.m3u8') || reqUrl.includes('.mp4') || reqUrl.match(/https?:\/\/.*\/.*\.ts/))) {
-            return { videoUrl: cleanVideoUrl(reqUrl), debug };
-          }
-        }
-      } catch (e) { dbg('captureError', String(e)); }
-
-      // attempt to execute custom extractor script in page if provided
-      if (config.matchVideo?.extractFunction) {
-        try {
-          dbg('executeScriptStart');
-          const result = await executeScriptInBrowser(episodeUrl, config.matchVideo.extractFunction, waitMs);
-          dbg('executeScriptResult', { result });
-          if (typeof result === 'string' && (result.includes('.m3u8') || result.includes('.mp4') || result.startsWith('http'))) {
-            return { videoUrl: cleanVideoUrl(result), debug };
-          }
-          if (result && Array.isArray(result)) {
-            const candidate = result.find((r: any) => typeof r === 'string' && (r.includes('.m3u8') || r.includes('.mp4')));
-            if (candidate) return { videoUrl: cleanVideoUrl(candidate), debug };
-          }
-        } catch (e) { dbg('executeScriptError', String(e)); }
-      }
-
-      // search rendered iframes
-      const renderedDoc = parseHtml(renderedHtml);
-      const iframes = Array.from(renderedDoc.querySelectorAll('iframe'));
-      dbg('renderedIframes', { count: iframes.length });
-      for (const iframe of iframes) {
-        const src = iframe.src;
-        if (!src) continue;
-        let fullSrc = src;
-        try { fullSrc = new URL(src, origin).href; } catch (e) { continue; }
-        if (fullSrc.includes('.m3u8') || fullSrc.includes('.mp4')) return { videoUrl: cleanVideoUrl(fullSrc), debug };
-        let shouldParseFrame = false;
-        if (config.matchVideo.matchNestedUrl) {
-          try { const nestRegex = new RegExp(config.matchVideo.matchNestedUrl); if (nestRegex.test(fullSrc)) shouldParseFrame = true; } catch (e) {}
-        } else { if (fullSrc.includes('player') || fullSrc.includes('video')) shouldParseFrame = true; }
-        if (shouldParseFrame) {
-          try {
-            const frameHtml = await renderPageWithBrowser(fullSrc, { waitMs: 2000, timeout: Math.min(20000, timeout) });
-            dbg('iframeRendered', { src: fullSrc, length: frameHtml.length });
-            if (config.matchVideo.matchVideoUrl) {
-              const frameMatch = findUrlInHtml(frameHtml, config.matchVideo.matchVideoUrl);
-              if (frameMatch && frameMatch.startsWith('http')) return { videoUrl: cleanVideoUrl(decodeURIComponent(frameMatch)), debug };
-            }
-            const simpleM3u8Match = frameHtml.match(/https?:\/\/[^"']+\.m3u8/);
-            if (simpleM3u8Match) return { videoUrl: cleanVideoUrl(simpleM3u8Match[0]), debug };
-          } catch (error) { dbg('iframeRenderError', String(error)); }
-        }
-      }
-
-    } catch (error) {
-      dbg('browserAttemptError', String(error));
-      console.error('❌ 浏览器渲染错误:', error);
-    }
-    return null;
-  };
-
-  // If forced, try browser first
-  if (forceBrowserFirst) {
-    const r = await tryBrowser();
-    if (r) return r;
-  }
-
-  // If static checks above didn't find, try browser fallback
-  const browserResult = await tryBrowser();
-  if (browserResult) return browserResult;
-
-  // final fallback: if we had static html, try broad m3u8 search
-  if (html) {
-    const broad = html.match(/https?:\/\/[^"']+\.(m3u8|mp4)/g);
-    dbg('finalStaticBroad', { found: broad && broad.length });
-    if (broad && broad.length > 0) return cleanVideoUrl(broad[0]);
-  }
-
-  dbg('notFound');
-  console.warn('❌ 未能找到视频 URL', debug);
-  return null;
 };

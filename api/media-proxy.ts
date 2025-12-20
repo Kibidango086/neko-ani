@@ -33,7 +33,7 @@ export default async function handler(req: any, res: any) {
         'Origin': new URL(url).origin,
       },
       timeout: 15000,
-    });
+    } as any);
 
     if (!response.ok) {
       console.error(`Proxy failed: HTTP ${response.status} for ${url}`);

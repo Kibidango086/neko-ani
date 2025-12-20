@@ -92,7 +92,7 @@ export const Layout: React.FC = () => {
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto p-4 pb-24 md:pb-8 w-full">
           <AnimatePresence mode="wait" initial={false}>
-            <Routes location={location} key={location.pathname}>
+            <Routes location={location}>
               <Route
                 path="/"
                 element={

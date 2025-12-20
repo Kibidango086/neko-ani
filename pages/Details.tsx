@@ -84,7 +84,7 @@ export const Details: React.FC = () => {
                 
                 return finalUrl;
               },
-            });
+            } as any);
             hls.loadSource(proxiedUrl);
             hls.attachMedia(videoRef.current);
             hls.on(Hls.Events.MANIFEST_PARSED, () => {
