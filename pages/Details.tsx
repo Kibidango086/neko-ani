@@ -57,22 +57,40 @@ export const Details: React.FC = () => {
 
             // 如果开启了脚本模式，注入自定义 Loader
             if (useUserscript) {
-                console.log('🚀 Checking for Userscript Bridge...');
+                console.log('🚀 Using Userscript Bridge Loader');
                 
                 class UserscriptLoader extends (Hls.DefaultConfig.loader as any) {
                     constructor(config: any) {
                         super(config);
-                        const loadInternal = this.load.bind(this);
                         this.load = (context: any, config: any, callbacks: any) => {
                             const bridge = (window as any).NEKO_ANI_BRIDGE;
                             if (bridge) {
+                                const trequest = performance.now();
                                 bridge.fetch(context.url, { responseType: 'arraybuffer' })
                                     .then((res: any) => {
-                                        // 构造 HLS.js 期望的响应格式
+                                        const tload = performance.now();
+                                        const loaded = res.data.byteLength;
+                                        
+                                        // 模拟 stats 对象，这是 hls.js 正常运行所必需的
+                                        const stats = {
+                                            trequest,
+                                            tfirst: trequest + 10,
+                                            tload,
+                                            loaded,
+                                            total: loaded
+                                        };
+
+                                        // 根据 hls.js 的需求处理数据格式
+                                        let data = res.data;
+                                        if (context.responseType === 'text') {
+                                            data = new TextDecoder().decode(res.data);
+                                        }
+
                                         callbacks.onSuccess({ 
-                                            data: res.data, 
+                                            data, 
                                             url: context.url,
-                                            code: res.status 
+                                            code: res.status,
+                                            stats
                                         }, context, config);
                                     })
                                     .catch((err: any) => {
@@ -80,8 +98,10 @@ export const Details: React.FC = () => {
                                         callbacks.onError(err, context, config);
                                     });
                             } else {
-                                console.warn('⚠️ Userscript mode enabled but bridge NOT found! Falling back to standard fetch.');
-                                loadInternal(context, config, callbacks);
+                                // 降级处理
+                                const InternalLoader = Hls.DefaultConfig.loader as any;
+                                const loader = new InternalLoader(config);
+                                loader.load(context, config, callbacks);
                             }
                         };
                     }
