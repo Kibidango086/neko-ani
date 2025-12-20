@@ -1,18 +1,8 @@
 {
   "version": 2,
-  "env": {
-    "PLAYWRIGHT_BROWSERS_PATH": "./browsers"
-  },
   "routes": [
-    { "src": "/api/(.*)", "dest": "/api/$1.ts" },
-    { "src": "/(.*)", "dest": "/$1" }
-  ],
-  "buildCommand": "PLAYWRIGHT_BROWSERS_PATH=./browsers npx playwright install chromium && npm run vercel-build",
-  "outputDirectory": "dist",
-  "functions": {
-    "api/**/*.ts": {
-      "includeFiles": "./browsers/**"
-    }
-  }
-
+    { "src": "/api/(.*)", "dest": "/api/$1" },
+    { "src": "/assets/(.*)", "dest": "/assets/$1" },
+    { "src": "/(.*)", "dest": "/index.html" }
+  ]
 }
