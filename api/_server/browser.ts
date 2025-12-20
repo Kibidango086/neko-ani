@@ -1,32 +1,27 @@
 import fetch from 'node-fetch';
 
 /**
- * 构造 Browserless API 完整的 URL，包括 Token 和查询参数
+ * 构造 Browserless API 完整的 URL
  */
 const getEndpoint = (tokenOrUrl: string | undefined, path: string, params: Record<string, string | number> = {}): string => {
   const raw = tokenOrUrl || process.env.BROWSERLESS_URL;
   if (!raw) throw new Error('Browserless Token/URL not configured');
 
   let finalUrl: URL;
-
   if (!raw.includes('://')) {
-    // 纯 Token 情况
     finalUrl = new URL(`https://chrome.browserless.io${path}`);
     finalUrl.searchParams.set('token', raw);
   } else {
-    // 完整 URL 情况
     const normalized = raw.replace('wss://', 'https://').replace('ws://', 'http://');
     finalUrl = new URL(normalized);
     finalUrl.pathname = path;
   }
 
-  // 附加额外的查询参数（如 timeout）
   for (const [key, val] of Object.entries(params)) {
     if (val !== undefined && val !== null) {
         finalUrl.searchParams.set(key, String(val));
     }
   }
-
   return finalUrl.toString();
 };
 
@@ -37,7 +32,7 @@ export interface BrowserResult {
 }
 
 /**
- * 使用专门的 /content 接口获取页面 HTML（最稳定）
+ * 获取页面内容 (稳定接口)
  */
 export const renderPageWithBrowser = async (
   url: string,
@@ -47,26 +42,20 @@ export const renderPageWithBrowser = async (
         timeout: options.timeout || 30000
     });
     
-    console.log(`Calling Browserless /content for: ${url}`);
-
     const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            url,
-            waitForSelector: options.waitFor
-        })
+        body: JSON.stringify({ url, waitForSelector: options.waitFor })
     });
 
     if (!response.ok) {
         throw new Error(`Browserless Content Error (${response.status}): ${await response.text()}`);
     }
-
     return await response.text();
 };
 
 /**
- * 使用 /function 接口执行复杂的拦截和脚本逻辑
+ * 执行复杂逻辑 (ESM 导出风格)
  */
 export const smartBrowserExtract = async (
     url: string,
@@ -79,8 +68,9 @@ export const smartBrowserExtract = async (
         script?: string;
     } = {}
 ): Promise<BrowserResult> => {
-    // 采用括号包装的匿名函数表达式，这是 eval 环境下最兼容的写法
-    const code = `(async ({ page, context }) => {
+    // 使用 ESM 导出风格，这是目前大多数现代 Browserless 环境的首选
+    const code = `
+export default async ({ page, context }) => {
   const { url, waitFor, waitMs, timeout, capturePattern, script } = context;
   const capturedUrls = [];
   
@@ -118,13 +108,15 @@ export const smartBrowserExtract = async (
   }
 
   const html = await page.content();
-
   return { html, capturedUrls, scriptResult };
-})`;
+};
+`.trim();
 
     const endpoint = getEndpoint(options.browserWSEndpoint, '/function', {
-        timeout: (options.timeout || 30000) + 5000 // 给 API 留出一点余量
+        timeout: (options.timeout || 30000) + 5000
     });
+
+    console.log(`Sending code to Browserless (first 50 chars): ${code.substring(0, 50)}...`);
 
     const response = await fetch(endpoint, {
         method: 'POST',
@@ -148,7 +140,6 @@ export const smartBrowserExtract = async (
     return await response.json() as BrowserResult;
 };
 
-// 保持旧接口兼容
 export const captureNetworkRequests = async (url: string, pattern: RegExp, waitMs: number, endpoint?: string) => 
     (await smartBrowserExtract(url, { capturePattern: pattern.source, waitMs, browserWSEndpoint: endpoint })).capturedUrls;
 
