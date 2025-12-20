@@ -60,14 +60,14 @@ export const Settings: React.FC = () => {
 
         {/* Browserless Endpoints */}
         <div className="space-y-4">
-            <label className="block text-base font-medium text-on-surface">Browserless Endpoints Pool</label>
+            <label className="block text-base font-medium text-on-surface">Browserless API Pool</label>
             <div className="bg-surface-container rounded-2xl p-4 space-y-4">
                 <div className="flex gap-2">
                     <input 
                         type="text"
                         value={newEndpoint}
                         onChange={(e) => setNewEndpoint(e.target.value)}
-                        placeholder="wss://chrome.browserless.io?token=YOUR-TOKEN"
+                        placeholder="wss://chrome.browserless.io?token=YOUR-API-KEY"
                         className="flex-1 bg-surface-container-high rounded-xl px-4 py-3 text-sm text-on-surface placeholder-on-surface-variant/50 border-none focus:ring-2 focus:ring-primary/20 outline-none"
                         onKeyDown={(e) => e.key === 'Enter' && addEndpoint()}
                     />
@@ -100,12 +100,12 @@ export const Settings: React.FC = () => {
                     </div>
                 ) : (
                     <div className="text-center py-6 text-on-surface-variant text-sm border border-dashed border-outline/20 rounded-xl">
-                        No endpoints configured. Basic extraction only.
+                        No API Keys configured. Video extraction will not work.
                     </div>
                 )}
             </div>
-            <p className="text-sm text-on-surface-variant px-2">
-                Add multiple endpoints to distribute load. The system will rotate through them for complex video extraction tasks.
+            <p className="text-sm text-on-surface-variant px-2 leading-relaxed">
+                <strong>Mandatory for Video Extraction:</strong> This project relies exclusively on Browserless.io (or self-hosted) to resolve video links. Add one or more WebSocket URLs with your API key to enable this feature. Endpoints are rotated automatically.
             </p>
         </div>
 

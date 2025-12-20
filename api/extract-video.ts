@@ -26,53 +26,26 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ error: 'Missing source or episodeUrl' });
     }
 
-    console.log(`Extracting: ${episodeUrl}`);
+    console.log(`Extracting via Browserless: ${episodeUrl}`);
 
-    // 1. Attempt Serverless Extraction (Static + Browserless)
     try {
         const { extractVideoUrl } = await import('./_server/parsers.js');
-        const localResult = await extractVideoUrl(source, episodeUrl, browserlessEndpoint);
+        const result = await extractVideoUrl(source, episodeUrl, browserlessEndpoint);
         
-        if (localResult && localResult.videoUrl) {
-            console.log('Serverless extraction successful:', localResult.videoUrl);
-            return res.status(200).json(localResult);
+        if (result && result.videoUrl) {
+            console.log('Extraction successful:', result.videoUrl);
+            return res.status(200).json(result);
         }
-        console.log('Serverless extraction failed, trying remote fallback...');
-    } catch (localError) {
-        console.warn('Serverless extraction error:', localError);
-        // Continue to remote
+        
+        return res.status(404).json({ error: 'Video URL not found via Browserless', debug: result?.debug });
+    } catch (error) {
+        console.error('Extraction error:', error);
+        return res.status(500).json({ error: 'Extraction service error', message: String(error) });
     }
-
-    // 2. Fallback to Remote Server
-    const remoteApiUrl = process.env.REMOTE_EXTRACT_API_URL;
-    if (!remoteApiUrl) {
-        console.error('REMOTE_EXTRACT_API_URL is not configured');
-        // If no remote configured, return failure
-        return res.status(500).json({ error: 'Video extraction failed (Local failed, Remote not configured)' });
-    }
-
-    // Forward the request to the remote server
-    const response = await fetch(remoteApiUrl, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'User-Agent': req.headers['user-agent'] || 'neko-ani-proxy'
-        },
-        body: JSON.stringify(body)
-    });
-
-    if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`Remote extraction failed: ${response.status} ${errorText}`);
-        return res.status(response.status).json({ error: 'Remote extraction failed', details: errorText });
-    }
-
-    const data = await response.json();
-    return res.status(200).json(data);
 
   } catch (error) {
-    console.error('Video extraction error:', error);
-    return res.status(500).json({ error: 'Failed to extract video URL', message: error?.message || String(error) });
+    console.error('Request error:', error);
+    return res.status(500).json({ error: 'Internal server error', message: String(error) });
   }
 }
 
