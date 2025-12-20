@@ -10,7 +10,7 @@ import Hls from 'hls.js';
 export const Details: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { mediaSources } = useAppStore();
+  const { mediaSources, useUserscript } = useAppStore();
   
   const [subject, setSubject] = useState<BangumiSubject | null>(null);
   const [loading, setLoading] = useState(true);
@@ -48,66 +48,65 @@ export const Details: React.FC = () => {
     if (videoUrl && videoRef.current) {
         setVideoError(null);
         
-        // 使用后端代理处理 m3u8
-        const proxiedUrl = videoUrl.includes('.m3u8') 
-          ? `/api/media-proxy?url=${encodeURIComponent(videoUrl)}`
-          : videoUrl;
-        
-        if (Hls.isSupported() && (videoUrl.includes('.m3u8') || proxiedUrl.includes('.m3u8'))) {
+        if (Hls.isSupported()) {
             if (hlsRef.current) {
                 hlsRef.current.destroy();
             }
             
-            // 保存原始 m3u8 URL 用于相对路径解析
-            const m3u8BaseUrl = videoUrl.substring(0, videoUrl.lastIndexOf('/') + 1);
+            const hlsConfig: any = {};
+
+            // 如果开启了脚本模式，注入自定义 Loader
+            if (useUserscript) {
+                console.log('🚀 Using Userscript Bridge for HLS');
+                
+                class UserscriptLoader extends (Hls.DefaultConfig.loader as any) {
+                    constructor(config: any) {
+                        super(config);
+                        const loadInternal = this.load.bind(this);
+                        this.load = (context: any, config: any, callbacks: any) => {
+                            const bridge = (window as any).NEKO_ANI_BRIDGE;
+                            if (bridge) {
+                                bridge.fetch(context.url, { responseType: 'arraybuffer' })
+                                    .then((res: any) => {
+                                        callbacks.onSuccess({ data: res.data, url: context.url }, context, config);
+                                    })
+                                    .catch((err: any) => {
+                                        callbacks.onError(err, context, config);
+                                    });
+                            } else {
+                                loadInternal(context, config, callbacks);
+                            }
+                        };
+                    }
+                }
+                hlsConfig.fLoader = UserscriptLoader;
+                hlsConfig.pLoader = UserscriptLoader;
+            }
             
-            const hls = new Hls({
-              // 使用 transformUrl 转换所有 URL
-              transformUrl: (url: string) => {
-                console.log(`📍 transformUrl 输入: ${url}`);
-                
-                let finalUrl = url;
-                
-                // 情况 1: 完整 HTTP(s) URL
-                if (url.startsWith('http://') || url.startsWith('https://')) {
-                  if (!url.includes('/api/media-proxy')) {
-                    finalUrl = `/api/media-proxy?url=${encodeURIComponent(url)}`;
-                    console.log(`✅ 完整 URL 代理: ${finalUrl}`);
-                  }
-                }
-                // 情况 2: 相对路径（如 0000.ts）
-                else if (!url.startsWith('/') && url.length > 0) {
-                  const fullUrl = new URL(url, m3u8BaseUrl).href;
-                  finalUrl = `/api/media-proxy?url=${encodeURIComponent(fullUrl)}`;
-                  console.log(`✅ 相对路径转代理: ${url} -> ${fullUrl}`);
-                }
-                
-                return finalUrl;
-              },
-            } as any);
-            hls.loadSource(proxiedUrl);
+            const hls = new Hls(hlsConfig);
+            hls.loadSource(videoUrl);
             hls.attachMedia(videoRef.current);
             hls.on(Hls.Events.MANIFEST_PARSED, () => {
                videoRef.current?.play().catch(e => console.log('Autoplay blocked', e));
             });
             hls.on(Hls.Events.ERROR, (event, data) => {
                 if (data.fatal) {
-                   setVideoError("Stream loading failed (HLS Error).");
+                   setVideoError(`Playback failed: ${data.details || data.type}. If this is a CORS issue, please install and enable the Userscript in Settings.`);
                 }
             });
             hlsRef.current = hls;
         } else if (videoRef.current.canPlayType('application/vnd.apple.mpegurl')) {
-            videoRef.current.src = proxiedUrl;
+            videoRef.current.src = videoUrl;
             videoRef.current.play().catch(e => console.log('Autoplay blocked', e));
         } else {
-            videoRef.current.src = proxiedUrl;
+            videoRef.current.src = videoUrl;
             videoRef.current.play().catch(e => console.log('Autoplay blocked', e));
         }
     }
     return () => {
         if (hlsRef.current) hlsRef.current.destroy();
     };
-  }, [videoUrl]);
+  }, [videoUrl, useUserscript]);
 
   const handleSearchSources = async () => {
     if (!subject) return;

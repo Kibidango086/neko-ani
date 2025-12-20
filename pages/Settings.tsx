@@ -1,15 +1,60 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../store';
-import { Save, AlertTriangle, CheckCircle, Plus, Trash2, Server } from 'lucide-react';
+import { Save, AlertTriangle, CheckCircle, Plus, Trash2, Server, Download, Copy, ShieldCheck, ExternalLink } from 'lucide-react';
 
 export const Settings: React.FC = () => {
-  const { bangumiToken, setBangumiToken, rawJson, setMediaSourceJson, browserlessEndpoints, setBrowserlessEndpoints } = useAppStore();
+  const { 
+    bangumiToken, setBangumiToken, 
+    rawJson, setMediaSourceJson, 
+    browserlessEndpoints, setBrowserlessEndpoints,
+    useUserscript, setUseUserscript 
+  } = useAppStore();
   
   const [localJson, setLocalJson] = useState(rawJson);
   const [localToken, setLocalToken] = useState(bangumiToken);
   const [localEndpoints, setLocalEndpoints] = useState<string[]>(browserlessEndpoints);
+  const [localUseUserscript, setLocalUseUserscript] = useState(useUserscript);
   const [newEndpoint, setNewEndpoint] = useState('');
   const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
+
+  const USERSCRIPT_CODE = `// ==UserScript==
+// @name         Neko-Ani Video Helper
+// @namespace    http://tampermonkey.net/
+// @version      0.1
+// @description  Bypass CORS for Neko-Ani video playback
+// @author       Neko-Ani
+// @match        *://*/*
+// @grant        GM_xmlhttpRequest
+// @connect      *
+// ==/UserScript==
+
+(function() {
+    'use strict';
+    // Expose a bridge function to the page
+    window.NEKO_ANI_BRIDGE = {
+        fetch: (url, options = {}) => {
+            return new Promise((resolve, reject) => {
+                GM_xmlhttpRequest({
+                    method: options.method || 'GET',
+                    url: url,
+                    headers: options.headers,
+                    data: options.body,
+                    responseType: options.responseType || 'arraybuffer',
+                    onload: (res) => {
+                        resolve({
+                            status: res.status,
+                            statusText: res.statusText,
+                            data: res.response,
+                            headers: res.responseHeaders
+                        });
+                    },
+                    onerror: reject
+                });
+            });
+        }
+    };
+    console.log('🐾 Neko-Ani Video Helper Active');
+})();`;
 
   const handleSave = () => {
     try {
@@ -17,11 +62,18 @@ export const Settings: React.FC = () => {
         setMediaSourceJson(localJson);
         setBangumiToken(localToken);
         setBrowserlessEndpoints(localEndpoints);
+        setUseUserscript(localUseUserscript);
         setMessage({ type: 'success', text: 'Settings saved successfully!' });
         setTimeout(() => setMessage(null), 3000);
     } catch (e) {
         setMessage({ type: 'error', text: 'Invalid JSON format in Source Configuration.' });
     }
+  };
+
+  const copyScript = () => {
+    navigator.clipboard.writeText(USERSCRIPT_CODE);
+    setMessage({ type: 'success', text: 'Script copied to clipboard!' });
+    setTimeout(() => setMessage(null), 2000);
   };
 
   const addEndpoint = () => {
@@ -39,6 +91,62 @@ export const Settings: React.FC = () => {
     <div className="max-w-3xl mx-auto space-y-10 p-4 md:p-8">
         <h1 className="text-4xl font-normal text-on-surface tracking-tight">Settings</h1>
         
+        {/* Playback Method */}
+        <div className="space-y-4">
+            <label className="block text-base font-medium text-on-surface flex items-center gap-2">
+                Playback Mode
+                {!localUseUserscript && <span className="text-[10px] bg-red-500/20 text-red-500 px-2 py-0.5 rounded-full uppercase">CORS Restricted</span>}
+                {localUseUserscript && <span className="text-[10px] bg-green-500/20 text-green-500 px-2 py-0.5 rounded-full uppercase">Helper Active</span>}
+            </label>
+            
+            <div className="bg-surface-container rounded-3xl overflow-hidden border border-outline/10">
+                <div className="p-6 space-y-6">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h3 className="font-bold text-on-surface">Use Userscript Helper</h3>
+                            <p className="text-sm text-on-surface-variant text-pretty">Bypass all CORS restrictions by fetching video segments directly from your browser. Highly recommended for all users.</p>
+                        </div>
+                        <button 
+                            onClick={() => setLocalUseUserscript(!localUseUserscript)}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${localUseUserscript ? 'bg-primary' : 'bg-surface-variant'}`}
+                        >
+                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${localUseUserscript ? 'translate-x-6' : 'translate-x-1'}`} />
+                        </button>
+                    </div>
+
+                    <div className="space-y-4 pt-4 border-t border-outline/10">
+                        <div className="flex items-start gap-3 bg-primary/5 p-4 rounded-2xl border border-primary/10">
+                            <ShieldCheck className="text-primary shrink-0" size={20} />
+                            <div className="text-sm text-on-surface-variant leading-relaxed">
+                                <p className="font-bold text-primary mb-1">One-Click Setup</p>
+                                1. Install <a href="https://www.tampermonkey.net/" target="_blank" className="underline font-medium text-primary inline-flex items-center gap-1">Tampermonkey <ExternalLink size={12} /></a> extension.<br />
+                                2. Click "Install Helper Script" below.<br />
+                                3. Toggle "Use Userscript Helper" to <strong>ON</strong> and save.
+                            </div>
+                        </div>
+                        
+                        <div className="flex gap-3">
+                            <a 
+                                href="/api/helper.user.js" 
+                                target="_blank"
+                                className="flex-1 flex items-center justify-center gap-2 bg-primary text-on-primary py-3 rounded-xl transition-all text-sm font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95"
+                            >
+                                <Download size={16} />
+                                Install Helper Script
+                            </a>
+                            <button 
+                                onClick={copyScript}
+                                title="Copy code manually"
+                                className="px-4 bg-surface-container-high hover:bg-surface-variant text-on-surface py-3 rounded-xl transition-all"
+                            >
+                                <Copy size={16} />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         {/* Bangumi Token */}
         <div className="space-y-4">
             <label className="block text-base font-medium text-on-surface">Bangumi Access Token</label>

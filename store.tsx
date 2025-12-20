@@ -9,6 +9,8 @@ interface AppContextType {
   rawJson: string;
   browserlessEndpoints: string[];
   setBrowserlessEndpoints: (endpoints: string[]) => void;
+  useUserscript: boolean;
+  setUseUserscript: (use: boolean) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -31,6 +33,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return stored ? JSON.parse(stored) : [];
     } catch (e) { return []; }
   });
+  const [useUserscript, setUseUserscript] = useState(() => localStorage.getItem('use_userscript') === 'true');
 
   useEffect(() => {
     localStorage.setItem('bangumi_token', bangumiToken);
@@ -39,6 +42,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     localStorage.setItem('browserless_endpoints', JSON.stringify(browserlessEndpoints));
   }, [browserlessEndpoints]);
+
+  useEffect(() => {
+    localStorage.setItem('use_userscript', useUserscript.toString());
+  }, [useUserscript]);
 
   useEffect(() => {
     localStorage.setItem('source_json', rawJson);
@@ -57,7 +64,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   return (
-    <AppContext.Provider value={{ bangumiToken, setBangumiToken, mediaSources, setMediaSourceJson, rawJson, browserlessEndpoints, setBrowserlessEndpoints }}>
+    <AppContext.Provider value={{ 
+        bangumiToken, setBangumiToken, 
+        mediaSources, setMediaSourceJson, 
+        rawJson, 
+        browserlessEndpoints, setBrowserlessEndpoints,
+        useUserscript, setUseUserscript
+    }}>
       {children}
     </AppContext.Provider>
   );
