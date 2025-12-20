@@ -1,45 +1,62 @@
 import fetch from 'node-fetch';
 
 /**
- * Helper to get the correct Browserless API endpoint
+ * Helper to get the correct Browserless API endpoint with optional query params
  */
-const getFunctionEndpoint = (tokenOrUrl?: string, path: string = '/function'): string => {
+const getEndpoint = (tokenOrUrl: string | undefined, path: string, params: Record<string, string | number> = {}): string => {
   const raw = tokenOrUrl || process.env.BROWSERLESS_URL;
   if (!raw) throw new Error('Browserless Token/URL not configured');
 
+  let baseUrl = '';
+  let token = '';
+
   if (!raw.includes('://')) {
-    return `https://chrome.browserless.io${path}?token=${raw}`;
+    baseUrl = `https://chrome.browserless.io${path}`;
+    token = raw;
+  } else {
+    let url = raw;
+    if (url.startsWith('wss://')) url = url.replace('wss://', 'https://');
+    if (url.startsWith('ws://')) url = url.replace('ws://', 'http://');
+    
+    try {
+        const urlObj = new URL(url);
+        urlObj.pathname = path;
+        token = urlObj.searchParams.get('token') || '';
+        urlObj.search = ''; // Clear existing params to rebuild
+        baseUrl = urlObj.toString();
+    } catch (e) {
+        baseUrl = url.replace(/\?(.*)$/, '') + path;
+    }
   }
 
-  let url = raw;
-  if (url.startsWith('wss://')) url = url.replace('wss://', 'https://');
-  if (url.startsWith('ws://')) url = url.replace('ws://', 'http://');
-
-  try {
-      const urlObj = new URL(url);
-      urlObj.pathname = path;
-      return urlObj.toString();
-  } catch (e) {
-      // Fallback for simple string replacement if URL is complex
-      return url.replace(/\?(.*)$/, '') + path + (url.includes('?') ? url.substring(url.indexOf('?')) : '');
+  const query = new URLSearchParams();
+  if (token) query.set('token', token);
+  for (const [key, val] of Object.entries(params)) {
+    if (val !== undefined && val !== null) query.set(key, String(val));
   }
+
+  const queryString = query.toString();
+  return queryString ? `${baseUrl}?${queryString}` : baseUrl;
 };
 
 export const renderPageWithBrowser = async (
   url: string,
   options: { waitFor?: string; waitMs?: number; timeout?: number; browserWSEndpoint?: string } = {}
 ): Promise<string> => {
-    const endpoint = getFunctionEndpoint(options.browserWSEndpoint, '/content');
-    console.log(`Calling Browserless Content: ${endpoint.replace(/token=[^&]+/, 'token=***')}`);
+    // timeout 必须作为查询参数传递，不能放在 body 中
+    const endpoint = getEndpoint(options.browserWSEndpoint, '/content', {
+        timeout: options.timeout || 30000
+    });
+    
+    console.log(`Calling Browserless /content: ${endpoint.replace(/token=[^&]+/, 'token=***')}`);
+
+    const body: any = { url };
+    if (options.waitFor) body.waitForSelector = options.waitFor;
 
     const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            url,
-            waitForSelector: options.waitFor,
-            timeout: options.timeout || 30000
-        })
+        body: JSON.stringify(body)
     });
 
     if (!response.ok) {
@@ -47,7 +64,11 @@ export const renderPageWithBrowser = async (
         throw new Error(`Browserless Content Error (${response.status}): ${text}`);
     }
 
-    return await response.text();
+    let html = await response.text();
+    
+    // 如果有额外的等待时间，/content 接口不支持 waitMs，只能在后续通过 /function 处理或者在这里接受结果
+    // 注意：/content 本身是渲染完即返回的。
+    return html;
 };
 
 export const captureNetworkRequests = async (
@@ -56,7 +77,6 @@ export const captureNetworkRequests = async (
   waitMs: number = 3000,
   browserWSEndpoint?: string
 ): Promise<string[]> => {
-    // Simplest form: an anonymous async function as a string
     const code = `async ({ page, context }) => {
   const { url, waitMs, patternStr } = context;
   const urls = [];
@@ -72,7 +92,7 @@ export const captureNetworkRequests = async (
   return urls;
 }`;
 
-    const endpoint = getFunctionEndpoint(browserWSEndpoint, '/function');
+    const endpoint = getEndpoint(browserWSEndpoint, '/function');
     const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -84,7 +104,7 @@ export const captureNetworkRequests = async (
 
     if (!response.ok) {
         const text = await response.text();
-        throw new Error(`Browserless API Error: ${text}`);
+        throw new Error(`Browserless Function Error: ${text}`);
     }
 
     return await response.json() as string[];
@@ -105,7 +125,7 @@ export const executeScriptInBrowser = async (
   }, script);
 }`;
 
-    const endpoint = getFunctionEndpoint(browserWSEndpoint, '/function');
+    const endpoint = getEndpoint(browserWSEndpoint, '/function');
     const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -117,7 +137,7 @@ export const executeScriptInBrowser = async (
 
     if (!response.ok) {
         const text = await response.text();
-        throw new Error(`Browserless API Error: ${text}`);
+        throw new Error(`Browserless Function Error: ${text}`);
     }
 
     return await response.json();
