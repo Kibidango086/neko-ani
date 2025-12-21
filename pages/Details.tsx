@@ -95,7 +95,9 @@ export const Details: React.FC = () => {
                                     tfirst: trequest + 5,
                                     tload,
                                     loaded,
-                                    total: loaded
+                                    total: loaded,
+                                    parsing: { start: tload, end: tload },
+                                    buffering: { start: tload, end: tload }
                                 };
 
                                 let data = res.data;
