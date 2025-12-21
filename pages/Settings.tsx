@@ -19,39 +19,57 @@ export const Settings: React.FC = () => {
 
   const USERSCRIPT_CODE = `// ==UserScript==
 // @name         Neko-Ani Video Helper
-// @namespace    http://tampermonkey.net/
-// @version      0.1
+// @namespace    https://github.com/neko-stream/neko-ani
+// @version      0.6
 // @description  Bypass CORS for Neko-Ani video playback
 // @author       Neko-Ani
 // @match        *://*/*
 // @grant        GM_xmlhttpRequest
+// @run-at       document-start
 // @connect      *
 // ==/UserScript==
 
 (function() {
     'use strict';
-    // Expose a bridge function to the page
-    window.NEKO_ANI_BRIDGE = {
+    const bridge = {
         fetch: (url, options = {}) => {
             return new Promise((resolve, reject) => {
-                GM_xmlhttpRequest({
+                const requestOptions = {
                     method: options.method || 'GET',
                     url: url,
-                    headers: options.headers,
+                    headers: options.headers || {},
                     data: options.body,
                     responseType: options.responseType || 'arraybuffer',
-                    onload: (res) => {
-                        resolve({
-                            status: res.status,
-                            statusText: res.statusText,
-                            data: res.response,
-                            headers: res.responseHeaders
-                        });
-                    },
+                    onload: (res) => resolve({
+                        status: res.status,
+                        statusText: res.statusText,
+                        data: res.response,
+                        headers: res.responseHeaders
+                    }),
                     onerror: reject
-                });
+                };
+                if (requestOptions.headers['X-Neko-Referer']) {
+                    requestOptions.headers['Referer'] = requestOptions.headers['X-Neko-Referer'];
+                    delete requestOptions.headers['X-Neko-Referer'];
+                }
+                GM_xmlhttpRequest(requestOptions);
             });
         }
+    };
+    window.NEKO_ANI_BRIDGE = bridge;
+    
+    const originalFetch = window.fetch;
+    window.fetch = async function(resource, init) {
+        const url = (typeof resource === 'string') ? resource : (resource.url || resource.toString());
+        if (url.startsWith('http') && !url.includes(window.location.host)) {
+            const res = await bridge.fetch(url, init);
+            return new Response(res.data, {
+                status: res.status,
+                statusText: res.statusText,
+                headers: new Headers(res.headers)
+            });
+        }
+        return originalFetch.apply(this, arguments);
     };
     console.log('🐾 Neko-Ani Video Helper Active');
 })();`;
