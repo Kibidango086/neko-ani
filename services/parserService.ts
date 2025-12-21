@@ -39,15 +39,47 @@ const callBackendApi = async <T>(
 };
 
 
+// Caching Helpers
+const CACHE_TTL = 2 * 60 * 60 * 1000; // 2 hours in ms
+
+const getCache = <T>(key: string): T | null => {
+    try {
+        const item = localStorage.getItem(`cache_${key}`);
+        if (!item) return null;
+        const { value, expiry } = JSON.parse(item);
+        if (Date.now() > expiry) {
+            localStorage.removeItem(`cache_${key}`);
+            return null;
+        }
+        return value as T;
+    } catch (e) { return null; }
+};
+
+const setCache = (key: string, value: any) => {
+    try {
+        const item = {
+            value,
+            expiry: Date.now() + CACHE_TTL
+        };
+        localStorage.setItem(`cache_${key}`, JSON.stringify(item));
+    } catch (e) { /* silent */ }
+};
+
 export const searchSource = async (
   source: MediaSource,
   keyword: string
 ): Promise<VideoSourceResult[]> => {
+  const cacheKey = `search_${source.arguments.name}_${keyword}`;
+  const cached = getCache<VideoSourceResult[]>(cacheKey);
+  if (cached) return cached;
+
   try {
-    return await callBackendApi<VideoSourceResult[]>('/search', {
+    const results = await callBackendApi<VideoSourceResult[]>('/search', {
       source,
       keyword,
     });
+    setCache(cacheKey, results);
+    return results;
   } catch (error) {
     console.error('Search error:', error);
     return [];
@@ -59,11 +91,17 @@ export const getEpisodes = async (
     source: MediaSource,
     detailUrl: string
 ): Promise<VideoEpisode[]> => {
+    const cacheKey = `episodes_${detailUrl}`;
+    const cached = getCache<VideoEpisode[]>(cacheKey);
+    if (cached) return cached;
+
     try {
-      return await callBackendApi<VideoEpisode[]>('/episodes', {
+      const eps = await callBackendApi<VideoEpisode[]>('/episodes', {
         source,
         detailUrl,
       });
+      setCache(cacheKey, eps);
+      return eps;
     } catch (error) {
       console.error('Episodes error:', error);
       return [];
@@ -75,6 +113,10 @@ export const extractVideoUrl = async (
     source: MediaSource,
     episodeUrl: string
 ): Promise<string | null> => {
+    const cacheKey = `extract_${episodeUrl}`;
+    const cached = getCache<string>(cacheKey);
+    if (cached) return cached;
+
     try {
       const browserlessEndpoint = getBrowserlessEndpoint();
       const result = await callBackendApi<{ videoUrl: string | null }>('/extract-video', {
@@ -82,6 +124,9 @@ export const extractVideoUrl = async (
         episodeUrl,
         browserlessEndpoint,
       });
+      if (result.videoUrl) {
+          setCache(cacheKey, result.videoUrl);
+      }
       return result.videoUrl;
     } catch (error) {
       console.error('Video extraction error:', error);

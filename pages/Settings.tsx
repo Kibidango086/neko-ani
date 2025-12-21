@@ -236,21 +236,21 @@ export const Settings: React.FC = () => {
             </p>
         </div>
 
-        {/* Save Button */}
-        <div className="fixed bottom-6 right-6 md:static md:flex md:justify-end md:pt-4">
-            <div className="flex items-center gap-4">
+        {/* Save Button - Sticky Bottom Bar for Mobile */}
+        <div className="sticky bottom-4 left-0 right-0 z-30 px-4 pb-4 md:static md:px-0 md:pb-0 md:flex md:justify-end md:pt-4">
+            <div className="flex flex-col md:flex-row items-center gap-4 bg-background/80 backdrop-blur-xl p-4 rounded-[2.5rem] shadow-2xl ring-1 ring-white/10 md:bg-transparent md:backdrop-blur-none md:p-0 md:shadow-none md:ring-0">
                 {message && (
-                    <div className={`flex items-center gap-2 text-sm px-4 py-2 rounded-lg bg-surface-container ${message.type === 'success' ? 'text-green-400' : 'text-error'}`}>
+                    <div className={`flex items-center gap-2 text-sm px-4 py-2 rounded-xl ${message.type === 'success' ? 'bg-green-500/10 text-green-400' : 'bg-error/10 text-error'} animate-in fade-in zoom-in duration-300 w-full md:w-auto justify-center`}>
                         {message.type === 'success' ? <CheckCircle size={16} /> : <AlertTriangle size={16} />}
                         {message.text}
                     </div>
                 )}
                 <button 
                     onClick={handleSave}
-                    className="flex items-center gap-2 bg-primary-container text-on-primary-container hover:shadow-lg hover:bg-primary/90 px-8 py-4 rounded-2xl font-medium transition-all"
+                    className="w-full md:w-auto flex items-center justify-center gap-3 bg-primary text-on-primary hover:shadow-xl hover:shadow-primary/30 px-10 py-5 rounded-2xl font-bold transition-all active:scale-95 shadow-lg"
                 >
                     <Save size={20} />
-                    Save Changes
+                    Save Configuration
                 </button>
             </div>
         </div>

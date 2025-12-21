@@ -172,11 +172,14 @@ export const Details: React.FC = () => {
     
     const keyword = subject.name_cn || subject.name;
     
-    const resultsPromises = mediaSources.map(source => searchSource(source, keyword));
-    const resultsArray = await Promise.all(resultsPromises);
-    const flatResults = resultsArray.flat();
-    
-    setSourceResults(flatResults);
+    for (const source of mediaSources) {
+        try {
+            const results = await searchSource(source, keyword);
+            setSourceResults(prev => [...prev, ...results]);
+        } catch (e) {
+            console.error('Source search failed:', source.arguments.name, e);
+        }
+    }
     setSearchingSources(false);
   };
 
@@ -220,62 +223,81 @@ export const Details: React.FC = () => {
   if (!subject) return <div className="p-8 text-center text-red-400">Subject not found</div>;
 
   return (
-    <div className="pb-20">
-        {/* Banner with Material design touch */}
-        <div className="relative h-[45vh] w-full overflow-hidden rounded-b-[2.5rem] shadow-lg mb-8">
-             <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent z-10" />
-             <div className="absolute inset-0 bg-black/30 z-0" />
-             <img src={subject.images?.large || subject.images?.common} className="w-full h-full object-cover" alt="Banner" />
-             
-             <div className="absolute top-4 left-4 z-20">
-                 <button onClick={() => navigate(-1)} className="bg-black/40 backdrop-blur-sm text-white p-2 rounded-full hover:bg-black/60 transition-colors">
-                     <ArrowLeft />
-                 </button>
-             </div>
+    <div className="pb-20 max-w-6xl mx-auto px-4 pt-8">
+        {/* Navigation */}
+        <div className="flex items-center gap-4 mb-8">
+             <button onClick={() => navigate(-1)} className="bg-surface-container-high text-on-surface p-3 rounded-2xl hover:bg-surface-variant transition-all active:scale-95">
+                 <ArrowLeft size={20} />
+             </button>
+             <h2 className="text-xl font-medium text-on-surface truncate">{subject.name_cn || subject.name}</h2>
+        </div>
 
-             <div className="absolute bottom-0 left-0 p-6 md:p-10 z-20 max-w-4xl w-full">
-                 <h1 className="text-3xl md:text-5xl font-bold text-white mb-3 drop-shadow-md">{subject.name_cn || subject.name}</h1>
-                 <div className="flex flex-wrap items-center gap-3 text-sm text-gray-200 mb-6">
-                     <div className="flex items-center gap-1 bg-yellow-400/90 text-black px-3 py-1 rounded-full font-bold">
-                         <Star size={14} fill="currentColor" /> {subject.rating?.score || 'N/A'}
-                     </div>
-                     <span className="bg-white/20 backdrop-blur-md px-3 py-1 rounded-full">{subject.date}</span>
+        {/* Compact Header Layout */}
+        <div className="grid md:grid-cols-[240px_1fr] gap-8 mb-12">
+            {/* Poster Card */}
+            <div className="relative group">
+                <div className="aspect-[3/4] rounded-[2rem] overflow-hidden shadow-2xl ring-1 ring-white/10">
+                    <img src={subject.images?.large || subject.images?.common} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt="Poster" />
+                </div>
+                <div className="absolute -bottom-4 -right-4 bg-yellow-400 text-black px-4 py-2 rounded-2xl font-bold shadow-xl flex items-center gap-1.5 ring-4 ring-background">
+                    <Star size={16} fill="currentColor" /> {subject.rating?.score || 'N/A'}
+                </div>
+            </div>
+
+            {/* Info and Actions */}
+            <div className="flex flex-col justify-center space-y-6">
+                 <div>
+                    <h1 className="text-3xl md:text-5xl font-bold text-on-surface mb-2">{subject.name_cn || subject.name}</h1>
+                    {subject.name_cn && subject.name !== subject.name_cn && (
+                        <p className="text-lg text-on-surface-variant opacity-70">{subject.name}</p>
+                    )}
                  </div>
-                 
+
+                 <div className="flex flex-wrap items-center gap-2">
+                     <span className="bg-secondary-container text-on-secondary-container px-4 py-1.5 rounded-xl text-sm font-medium">{subject.date}</span>
+                     {subject.tags?.slice(0, 5).map(tag => (
+                         <span key={tag.name} className="bg-surface-container-high text-on-surface-variant px-3 py-1.5 rounded-xl text-xs">
+                             #{tag.name}
+                         </span>
+                     ))}
+                 </div>
+
                  {!selectedResult && (
-                    <button 
-                        onClick={handleSearchSources}
-                        disabled={searchingSources}
-                        className="bg-primary-container text-on-primary-container hover:bg-primary/90 px-8 py-4 rounded-full font-medium text-lg flex items-center gap-3 transition-all shadow-lg hover:shadow-primary/20"
-                    >
-                        {searchingSources ? <Loader2 className="animate-spin" /> : <Play fill="currentColor" />}
-                        {searchingSources ? 'Searching Sources...' : 'Find Available Sources'}
-                    </button>
+                    <div className="pt-4">
+                        <button 
+                            onClick={handleSearchSources}
+                            disabled={searchingSources}
+                            className="bg-primary text-on-primary hover:shadow-lg hover:shadow-primary/30 px-10 py-5 rounded-[2rem] font-bold text-lg flex items-center gap-3 transition-all active:scale-95 disabled:opacity-50"
+                        >
+                            {searchingSources ? <Loader2 className="animate-spin" /> : <Play fill="currentColor" />}
+                            {searchingSources ? 'Searching Sources...' : 'Start Watching'}
+                        </button>
+                    </div>
                  )}
-             </div>
+            </div>
         </div>
 
         {/* Content Area */}
-        <div className="px-4 md:px-8 space-y-10 max-w-7xl mx-auto">
+        <div className="space-y-12">
             
             {/* Video Player Section */}
             {currentEpisode && (
-                <div className="w-full aspect-video bg-black rounded-3xl overflow-hidden shadow-2xl ring-4 ring-surface-container relative group">
+                <div className="w-full aspect-video bg-black rounded-[3rem] overflow-hidden shadow-2xl ring-8 ring-surface-container relative">
                     {loadingVideo && (
                         <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-20 backdrop-blur-sm">
                             <div className="text-center">
                                 <Loader2 className="animate-spin w-12 h-12 mx-auto mb-4 text-primary" />
-                                <p className="text-on-surface">Parsing video stream...</p>
+                                <p className="text-on-surface">Initializing Stream...</p>
                             </div>
                         </div>
                     )}
                     
                     {videoError ? (
                         <div className="absolute inset-0 flex items-center justify-center bg-surface-container-high z-10">
-                            <div className="text-center p-8 bg-surface-variant/30 rounded-2xl">
+                            <div className="text-center p-8">
                                 <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-error" />
-                                <p className="text-error font-medium mb-2">{videoError}</p>
-                                <p className="text-sm text-on-surface-variant">Please try a different source or episode.</p>
+                                <p className="text-error font-medium mb-4">{videoError}</p>
+                                <button onClick={() => setCurrentEpisode(null)} className="text-primary font-bold">Try Another Episode</button>
                             </div>
                         </div>
                     ) : (
@@ -286,46 +308,45 @@ export const Details: React.FC = () => {
 
             {/* Episode List Container */}
             {selectedResult && (
-                <div className="bg-surface-container p-6 rounded-[2rem]">
-                    <div className="flex items-center justify-between mb-6">
-                         <div className="flex items-center gap-3">
-                            <div className="p-2 bg-secondary-container rounded-xl text-on-secondary-container">
-                                <Database size={20} />
+                <div className="bg-surface-container p-8 rounded-[3rem] shadow-sm border border-outline/5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+                         <div className="flex items-center gap-4">
+                            <div className="p-3 bg-primary/10 rounded-2xl text-primary">
+                                <Database size={24} />
                             </div>
                             <div>
-                                <span className="block text-xs text-on-surface-variant">Current Source</span>
-                                <span className="font-bold text-lg text-on-surface">{selectedResult.sourceName}</span>
+                                <span className="block text-xs text-on-surface-variant uppercase tracking-widest font-bold">Source Provider</span>
+                                <span className="font-bold text-xl text-on-surface">{selectedResult.sourceName}</span>
                             </div>
                          </div>
                          <button 
                             onClick={() => { setSelectedResult(null); setVideoUrl(null); setVideoError(null); }} 
-                            className="text-sm font-medium text-primary hover:text-primary-container px-4 py-2 rounded-full hover:bg-primary/10 transition-colors"
+                            className="bg-surface-container-highest text-primary font-bold px-6 py-3 rounded-2xl hover:bg-primary/10 transition-colors"
                          >
-                            Change Source
+                            Switch Source
                          </button>
                     </div>
 
                     {loadingEpisodes ? (
                         <div className="py-12 text-center text-on-surface-variant flex flex-col items-center">
-                            <Loader2 className="animate-spin mb-2" /> 
-                            Fetching episodes...
+                            <Loader2 className="animate-spin mb-4 w-8 h-8 text-primary" /> 
+                            <p>Loading playlist...</p>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 max-h-80 overflow-y-auto pr-2 custom-scrollbar">
+                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 max-h-96 overflow-y-auto pr-4 custom-scrollbar">
                             {episodes.map((ep, idx) => (
                                 <button
                                     key={idx}
                                     onClick={() => handlePlayEpisode(ep)}
-                                    className={`py-3 px-2 rounded-xl text-sm font-medium transition-all ${
+                                    className={`py-4 px-2 rounded-2xl text-sm font-bold transition-all active:scale-90 ${
                                         currentEpisode?.url === ep.url 
-                                        ? 'bg-primary text-on-primary shadow-md' 
-                                        : 'bg-surface-container-high hover:bg-surface-variant text-on-surface-variant hover:text-white'
+                                        ? 'bg-primary text-on-primary shadow-lg shadow-primary/20 scale-105' 
+                                        : 'bg-surface-container-high hover:bg-surface-variant text-on-surface'
                                     }`}
                                 >
                                     {ep.sort || ep.title}
                                 </button>
                             ))}
-                            {episodes.length === 0 && <div className="col-span-full text-center text-on-surface-variant py-8">No episodes found.</div>}
                         </div>
                     )}
                 </div>
@@ -333,43 +354,28 @@ export const Details: React.FC = () => {
 
             {/* Source Selection List */}
             {sourceResults.length > 0 && !selectedResult && (
-                <div className="space-y-4">
-                    <h3 className="text-xl font-medium flex items-center gap-2 text-on-surface">
-                        Available Sources
-                        <span className="text-sm bg-secondary-container text-on-secondary-container px-2 py-0.5 rounded-full ml-2">{sourceResults.length}</span>
-                    </h3>
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                        {sourceResults.map(res => (
-                            <div key={res.sourceId.toString()} 
-                                className="bg-surface-container p-5 rounded-2xl hover:bg-surface-container-high transition-all cursor-pointer group border border-transparent hover:border-primary/20" 
+                <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                        <h3 className="text-2xl font-bold text-on-surface">Available Sources</h3>
+                        {searchingSources && <div className="flex items-center gap-2 text-sm text-primary font-medium"><Loader2 size={16} className="animate-spin" /> Searching...</div>}
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {sourceResults.map((res, i) => (
+                            <div key={`${res.sourceName}-${i}`} 
+                                className="bg-surface-container p-6 rounded-[2rem] hover:bg-surface-container-high transition-all cursor-pointer group border border-outline/5 hover:border-primary/30 shadow-sm animate-in fade-in slide-in-from-bottom-4 duration-500" 
                                 onClick={() => handleSelectSource(res)}
+                                style={{ animationDelay: `${i * 100}ms` }}
                             >
-                                <div className="flex justify-between items-start mb-2">
-                                    <h4 className="font-semibold text-on-surface group-hover:text-primary truncate pr-2">{res.title}</h4>
-                                    <span className="text-[10px] uppercase tracking-wider font-bold bg-primary/10 text-primary px-2 py-1 rounded-full">{res.sourceName}</span>
+                                <div className="flex justify-between items-start mb-3">
+                                    <h4 className="font-bold text-lg text-on-surface group-hover:text-primary truncate pr-2">{res.title}</h4>
+                                    <span className="text-[10px] uppercase tracking-tighter font-black bg-primary/10 text-primary px-3 py-1 rounded-full">{res.sourceName}</span>
                                 </div>
-                                <div className="text-xs text-on-surface-variant/70 truncate font-mono">{res.url}</div>
+                                <div className="text-xs text-on-surface-variant/50 truncate font-mono bg-black/5 p-2 rounded-lg">{res.url}</div>
                             </div>
                         ))}
                     </div>
                 </div>
             )}
-
-            {/* Tags */}
-            <div className="flex flex-wrap gap-2">
-                {subject.tags?.map(tag => (
-                    <span key={tag.name} className="px-4 py-1.5 rounded-lg bg-surface-container-high border border-outline/20 text-sm text-on-surface-variant hover:bg-surface-variant transition-colors cursor-default">
-                        #{tag.name}
-                    </span>
-                ))}
-            </div>
-
-            {/* Summary */}
-            <div className="bg-surface-container/50 p-6 rounded-3xl">
-                <h3 className="text-lg font-bold mb-3 text-on-surface">Overview</h3>
-                <p className="text-on-surface-variant leading-relaxed">{subject.summary || "No summary available."}</p>
-            </div>
-            
         </div>
     </div>
   );
