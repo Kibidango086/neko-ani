@@ -48,7 +48,9 @@ export const Details: React.FC = () => {
     if (videoUrl && videoRef.current) {
         setVideoError(null);
         
-        if (Hls.isSupported()) {
+        const isHls = videoUrl.includes('.m3u8') || videoUrl.includes('playlist');
+        
+        if (isHls && Hls.isSupported()) {
             if (hlsRef.current) {
                 hlsRef.current.destroy();
             }
@@ -151,10 +153,9 @@ export const Details: React.FC = () => {
                 }
             });
             hlsRef.current = hls;
-        } else if (videoRef.current.canPlayType('application/vnd.apple.mpegurl')) {
-            videoRef.current.src = videoUrl;
-            videoRef.current.play().catch(e => console.log('Autoplay blocked', e));
         } else {
+            // Native Player for MP4 or non-Hls browsers
+            console.log('🎬 [Player] Using Native Video Player');
             videoRef.current.src = videoUrl;
             videoRef.current.play().catch(e => console.log('Autoplay blocked', e));
         }
