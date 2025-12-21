@@ -20,17 +20,19 @@ export const Settings: React.FC = () => {
   const USERSCRIPT_CODE = `// ==UserScript==
 // @name         Neko-Ani Video Helper
 // @namespace    https://github.com/neko-stream/neko-ani
-// @version      0.6
+// @version      1.0
 // @description  Bypass CORS for Neko-Ani video playback
 // @author       Neko-Ani
 // @match        *://*/*
 // @grant        GM_xmlhttpRequest
+// @grant        unsafeWindow
 // @run-at       document-start
 // @connect      *
 // ==/UserScript==
 
 (function() {
     'use strict';
+
     const bridge = {
         fetch: (url, options = {}) => {
             return new Promise((resolve, reject) => {
@@ -44,34 +46,52 @@ export const Settings: React.FC = () => {
                         status: res.status,
                         statusText: res.statusText,
                         data: res.response,
-                        headers: res.responseHeaders
+                        headers: res.responseHeaders,
+                        finalUrl: res.finalUrl
                     }),
-                    onerror: reject
+                    onerror: (err) => reject(err)
                 };
+                
                 if (requestOptions.headers['X-Neko-Referer']) {
                     requestOptions.headers['Referer'] = requestOptions.headers['X-Neko-Referer'];
                     delete requestOptions.headers['X-Neko-Referer'];
                 }
+
                 GM_xmlhttpRequest(requestOptions);
             });
         }
     };
+
     window.NEKO_ANI_BRIDGE = bridge;
-    
+    if (typeof unsafeWindow !== 'undefined') unsafeWindow.NEKO_ANI_BRIDGE = bridge;
+
+    const isCrossOrigin = (url) => {
+        try {
+            return new URL(url, window.location.origin).origin !== window.location.origin;
+        } catch (e) { return false; }
+    };
+
     const originalFetch = window.fetch;
     window.fetch = async function(resource, init) {
         const url = (typeof resource === 'string') ? resource : (resource.url || resource.toString());
-        if (url.startsWith('http') && !url.includes(window.location.host)) {
+        if (isCrossOrigin(url)) {
             const res = await bridge.fetch(url, init);
             return new Response(res.data, {
                 status: res.status,
-                statusText: res.statusText,
-                headers: new Headers(res.headers)
+                headers: new Headers((headerStr => {
+                    const h = {};
+                    (headerStr || '').split(/[\\r\\n]+/).forEach(l => {
+                        const p = l.split(': ');
+                        if (p.length >= 2) h[p[0].trim()] = p.slice(1).join(': ').trim();
+                    });
+                    return h;
+                })(res.headers))
             });
         }
         return originalFetch.apply(this, arguments);
     };
-    console.log('🐾 Neko-Ani Video Helper Active');
+
+    console.log('🐾 Neko-Ani Video Helper v1.0 Active');
 })();`;
 
   const handleSave = () => {
