@@ -48,7 +48,9 @@ export const Details: React.FC = () => {
     if (videoUrl && videoRef.current) {
         setVideoError(null);
         
-        const isHls = videoUrl.includes('.m3u8') || videoUrl.includes('playlist');
+        // 更严谨的 HLS 判断：排除常见视频后缀
+        const isMp4 = videoUrl.toLowerCase().includes('.mp4') || videoUrl.toLowerCase().includes('.m4v');
+        const isHls = (videoUrl.includes('.m3u8') || videoUrl.includes('playlist')) && !isMp4;
         
         if (isHls && Hls.isSupported()) {
             if (hlsRef.current) {
@@ -103,6 +105,11 @@ export const Details: React.FC = () => {
                             headers
                         })
                         .then((res: any) => {
+                            // 处理 400 等错误状态，不让 hls.js 尝试解析错误页面
+                            if (res.status >= 400) {
+                                throw new Error(`HTTP Error ${res.status}`);
+                            }
+
                             const tload = performance.now();
                             this.stats.tfirst = Math.max(this.stats.trequest + 1, tload - 1);
                             this.stats.tload = tload;
@@ -111,7 +118,6 @@ export const Details: React.FC = () => {
                             this.stats.loaded = res.data?.byteLength || res.data?.length || 0;
                             this.stats.total = this.stats.loaded;
                             
-                            // 模拟 parsing 和 buffering 的耗时
                             this.stats.parsing = { start: tload, end: tload };
                             this.stats.buffering = { start: tload, end: tload };
 
@@ -148,6 +154,15 @@ export const Details: React.FC = () => {
             });
             hls.on(Hls.Events.ERROR, (event, data) => {
                 console.error('🔥 [HLS Error]:', data.details, data);
+                
+                // 关键改进：如果 HLS 解析失败且看起来是 MP4，自动切换到原生播放器
+                if (data.details === 'manifestParsingError' && videoUrl.includes('.mp4')) {
+                    console.log('🔄 [Player] HLS parsing failed for MP4, falling back to native player');
+                    hls.destroy();
+                    if (videoRef.current) videoRef.current.src = videoUrl;
+                    return;
+                }
+
                 if (data.fatal) {
                    setVideoError(`Playback failed: ${data.details || data.type}. Check console for details.`);
                 }
