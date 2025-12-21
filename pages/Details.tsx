@@ -96,6 +96,8 @@ export const Details: React.FC = () => {
                                     tload,
                                     loaded,
                                     total: loaded,
+                                    aborted: false,
+                                    retry: 0,
                                     parsing: { start: tload, end: tload },
                                     buffering: { start: tload, end: tload }
                                 };
@@ -108,9 +110,8 @@ export const Details: React.FC = () => {
                                 callbacks.onSuccess({ 
                                     data, 
                                     url: res.finalUrl || context.url,
-                                    code: res.status,
-                                    stats
-                                }, context, config);
+                                    code: res.status
+                                }, stats, context, res);
                             })
                             .catch((err: any) => {
                                 console.error('Bridge load failed:', err);
