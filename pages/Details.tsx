@@ -71,6 +71,7 @@ export const Details: React.FC = () => {
                             loaded: 0,
                             total: 0,
                             retry: 0,
+                            loading: { start: 0, first: 0, end: 0 },
                             parsing: { start: 0, end: 0 },
                             buffering: { start: 0, end: 0 }
                         };
@@ -82,13 +83,14 @@ export const Details: React.FC = () => {
                         const bridge = (window as any).NEKO_ANI_BRIDGE;
 
                         if (!bridge) {
-                            console.error('❌ [Player] Bridge not found! Is the userscript installed and enabled?');
+                            console.error('❌ [Player] Bridge not found!');
                             callbacks.onError({ code: 0, text: 'Bridge missing' }, context, null);
                             return;
                         }
 
                         const now = performance.now();
                         this.stats.trequest = now;
+                        this.stats.loading.start = now;
                         
                         const headers: any = {};
                         const currentSource = (window as any).CURRENT_SOURCE_URL;
@@ -100,17 +102,22 @@ export const Details: React.FC = () => {
                         })
                         .then((res: any) => {
                             const tload = performance.now();
-                            this.stats.tfirst = Math.max(this.stats.trequest + 1, tload - 10);
+                            this.stats.tfirst = Math.max(this.stats.trequest + 1, tload - 1);
                             this.stats.tload = tload;
+                            this.stats.loading.first = this.stats.tfirst;
+                            this.stats.loading.end = tload;
                             this.stats.loaded = res.data?.byteLength || res.data?.length || 0;
                             this.stats.total = this.stats.loaded;
                             
+                            // 模拟 parsing 和 buffering 的耗时
+                            this.stats.parsing = { start: tload, end: tload };
+                            this.stats.buffering = { start: tload, end: tload };
+
                             let data = res.data;
                             if (context.responseType === 'text' && typeof data !== 'string') {
                                 data = new TextDecoder().decode(res.data);
                             }
 
-                            // 关键：hls.js 处理 4xx/5xx 时也需要调用 onSuccess，但要带上正确的 code
                             callbacks.onSuccess({ 
                                 data, 
                                 url: res.finalUrl || context.url,
