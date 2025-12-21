@@ -55,89 +55,17 @@ export const Details: React.FC = () => {
             
             const hlsConfig: any = {};
 
-            // 如果开启了脚本模式，注入自定义 Loader
+            // 如果开启了脚本模式，这里不再注入自定义 Loader
+            // 而是依靠油猴脚本对 window.XMLHttpRequest 的全局劫持
             if (useUserscript) {
-                console.log('🚀 Using Userscript Bridge Loader');
-                
-                class UserscriptLoader {
-                    context: any;
-                    config: any;
-                    callbacks: any;
-                    stats: any;
-                    retryDelay: number = 0;
-
-                    constructor(config: any) {
-                        this.config = config;
+                console.log('🚀 Userscript Proxy Mode Active (Global XHR Interception)');
+                // 可以在这里通过 xhrSetup 注入特定头，比如 Referer
+                hlsConfig.xhrSetup = (xhr: XMLHttpRequest, url: string) => {
+                    const currentSource = (window as any).CURRENT_SOURCE_URL;
+                    if (currentSource) {
+                        xhr.setRequestHeader('X-Neko-Referer', currentSource);
                     }
-
-                    load(context: any, config: any, callbacks: any) {
-                        this.context = context;
-                        this.callbacks = callbacks;
-                        const bridge = (window as any).NEKO_ANI_BRIDGE;
-
-                        if (bridge) {
-                            const trequest = performance.now();
-                            const headers: any = { 
-                                'X-Neko-Referer': (window as any).CURRENT_SOURCE_URL || ''
-                            };
-
-                            bridge.fetch(context.url, { 
-                                responseType: context.responseType === 'arraybuffer' ? 'arraybuffer' : 'text',
-                                method: 'GET',
-                                headers
-                            })
-                            .then((res: any) => {
-                                const tload = performance.now();
-                                const loaded = res.data?.byteLength || res.data?.length || 0;
-                                
-                                const stats = {
-                                    trequest,
-                                    tfirst: trequest + 5,
-                                    tload,
-                                    loaded,
-                                    total: loaded,
-                                    aborted: false,
-                                    retry: 0,
-                                    parsing: { start: tload, end: tload },
-                                    buffering: { start: tload, end: tload }
-                                };
-
-                                let data = res.data;
-                                if (context.responseType === 'text' && typeof data !== 'string') {
-                                    data = new TextDecoder().decode(res.data);
-                                }
-
-                                callbacks.onSuccess({ 
-                                    data, 
-                                    url: res.finalUrl || context.url,
-                                    code: res.status
-                                }, stats, context, res);
-                            })
-                            .catch((err: any) => {
-                                console.error('Bridge load failed:', err);
-                                callbacks.onError({ code: 0, text: String(err) }, context, config);
-                            });
-                        } else {
-                            // 降级使用原生 fetch
-                            fetch(context.url)
-                                .then(r => r.arrayBuffer().then(data => ({ data, r })))
-                                .then(({ data, r }) => {
-                                    callbacks.onSuccess({
-                                        data,
-                                        url: r.url,
-                                        code: r.status,
-                                        stats: { trequest: 0, tfirst: 0, tload: 0, loaded: data.byteLength, total: data.byteLength }
-                                    }, context, config);
-                                })
-                                .catch(err => callbacks.onError(err, context, config));
-                        }
-                    }
-
-                    abort() { /* Not implemented in bridge yet but required by interface */ }
-                    destroy() { /* Cleanup if needed */ }
-                }
-                hlsConfig.fLoader = UserscriptLoader;
-                hlsConfig.pLoader = UserscriptLoader;
+                };
             }
             
             const hls = new Hls(hlsConfig);
