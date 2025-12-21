@@ -20,8 +20,8 @@ export const Settings: React.FC = () => {
   const USERSCRIPT_CODE = `// ==UserScript==
 // @name         Neko-Ani Video Helper
 // @namespace    https://github.com/neko-stream/neko-ani
-// @version      1.1
-// @description  A robust CORS bypass helper for Neko-Ani video playback
+// @version      1.2
+// @description  CORS bypass bridge for Neko-Ani
 // @author       Neko-Ani
 // @match        *://*/*
 // @grant        GM_xmlhttpRequest
@@ -32,100 +32,34 @@ export const Settings: React.FC = () => {
 
 (function() {
     'use strict';
-
-    const isCrossOrigin = (url) => {
-        try {
-            const requestUrl = new URL(url, window.location.origin);
-            return requestUrl.origin !== window.location.origin;
-        } catch (e) { return false; }
-    };
-
-    const OriginalXHR = window.XMLHttpRequest;
-    function ProxiedXHR() {
-        const realXHR = new OriginalXHR();
-        let useProxy = false;
-        let proxyConfig = { method: 'GET', url: '', headers: {} };
-
-        return new Proxy(realXHR, {
-            get(target, prop) {
-                if (prop === 'open') {
-                    return function(method, url) {
-                        proxyConfig.method = method;
-                        proxyConfig.url = url;
-                        useProxy = isCrossOrigin(url);
-                        if (!useProxy) return target.open.apply(target, arguments);
-                    };
-                }
-                if (prop === 'setRequestHeader') {
-                    return function(header, value) {
-                        proxyConfig.headers[header] = value;
-                        if (!useProxy) return target.setRequestHeader.apply(target, arguments);
-                    };
-                }
-                if (prop === 'send') {
-                    return function(data) {
-                        if (!useProxy) return target.send.apply(target, arguments);
-                        GM_xmlhttpRequest({
-                            method: proxyConfig.method,
-                            url: proxyConfig.url,
-                            headers: proxyConfig.headers,
-                            data: data,
-                            responseType: target.responseType === 'arraybuffer' ? 'arraybuffer' : 'blob',
-                            onload: (res) => {
-                                Object.defineProperties(target, {
-                                    readyState: { value: 4 },
-                                    status: { value: res.status },
-                                    response: { value: res.response },
-                                    getAllResponseHeaders: { value: () => res.responseHeaders }
-                                });
-                                if (proxyConfig.headers['X-Neko-Referer']) {
-                                    delete proxyConfig.headers['X-Neko-Referer'];
-                                }
-                                target.dispatchEvent(new Event('readystatechange'));
-                                target.dispatchEvent(new Event('load'));
-                            },
-                            onerror: () => target.dispatchEvent(new Event('error'))
-                        });
-                    };
-                }
-                const val = target[prop];
-                return typeof val === 'function' ? val.bind(target) : val;
-            },
-            set(target, prop, value) { target[prop] = value; return true; }
-        });
-    }
-    window.XMLHttpRequest = ProxiedXHR;
-
-    const originalFetch = window.fetch;
-    window.fetch = async function(resource, init = {}) {
-        const url = (typeof resource === 'string') ? resource : (resource.url || resource.toString());
-        if (isCrossOrigin(url)) {
+    const bridge = {
+        fetch: (url, options = {}) => {
             return new Promise((resolve, reject) => {
-                GM_xmlhttpRequest({
-                    method: init.method || 'GET',
+                const requestOptions = {
+                    method: options.method || 'GET',
                     url: url,
-                    headers: init.headers || {},
-                    data: init.body,
-                    responseType: 'arraybuffer',
-                    onload: (res) => {
-                        resolve(new Response(res.data, {
-                            status: res.status,
-                            headers: new Headers((headerStr => {
-                                const h = {};
-                                (headerStr || '').split(/[\\r\\n]+/).forEach(l => {
-                                    const p = l.split(': ');
-                                    if (p.length >= 2) h[p[0].trim()] = p.slice(1).join(': ').trim();
-                                });
-                                return h;
-                            })(res.responseHeaders))
-                        }));
-                    },
+                    headers: options.headers || {},
+                    data: options.body,
+                    responseType: options.responseType || 'arraybuffer',
+                    onload: (res) => resolve({
+                        status: res.status,
+                        data: res.response,
+                        headers: res.responseHeaders,
+                        finalUrl: res.finalUrl
+                    }),
                     onerror: reject
-                });
+                };
+                if (requestOptions.headers['X-Neko-Referer']) {
+                    requestOptions.headers['Referer'] = requestOptions.headers['X-Neko-Referer'];
+                    delete requestOptions.headers['X-Neko-Referer'];
+                }
+                GM_xmlhttpRequest(requestOptions);
             });
         }
-        return originalFetch.apply(this, arguments);
     };
+    window.NEKO_ANI_BRIDGE = bridge;
+    if (typeof unsafeWindow !== 'undefined') unsafeWindow.NEKO_ANI_BRIDGE = bridge;
+    console.log('🐾 [Neko-Ani] Bridge Ready');
 })();`;
 
   const handleSave = () => {

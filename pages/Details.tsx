@@ -55,17 +55,79 @@ export const Details: React.FC = () => {
             
             const hlsConfig: any = {};
 
-            // 如果开启了脚本模式，这里不再注入自定义 Loader
-            // 而是依靠油猴脚本对 window.XMLHttpRequest 的全局劫持
             if (useUserscript) {
-                console.log('🚀 Userscript Proxy Mode Active (Global XHR Interception)');
-                // 可以在这里通过 xhrSetup 注入特定头，比如 Referer
-                hlsConfig.xhrSetup = (xhr: XMLHttpRequest, url: string) => {
-                    const currentSource = (window as any).CURRENT_SOURCE_URL;
-                    if (currentSource) {
-                        xhr.setRequestHeader('X-Neko-Referer', currentSource);
+                console.log('🚀 Using Robust Userscript Bridge Loader');
+                
+                class UserscriptLoader {
+                    stats: any;
+                    context: any;
+                    callbacks: any;
+
+                    constructor() {
+                        this.stats = {
+                            trequest: 0,
+                            tfirst: 0,
+                            tload: 0,
+                            loaded: 0,
+                            total: 0,
+                            aborted: false,
+                            retry: 0,
+                            parsing: { start: 0, end: 0 },
+                            buffering: { start: 0, end: 0 }
+                        };
                     }
-                };
+
+                    load(context: any, config: any, callbacks: any) {
+                        this.context = context;
+                        this.callbacks = callbacks;
+                        const bridge = (window as any).NEKO_ANI_BRIDGE;
+
+                        if (bridge) {
+                            const now = performance.now();
+                            this.stats.trequest = now;
+                            this.stats.tfirst = now + 2;
+
+                            const headers: any = {};
+                            const currentSource = (window as any).CURRENT_SOURCE_URL;
+                            if (currentSource) headers['X-Neko-Referer'] = currentSource;
+
+                            bridge.fetch(context.url, { 
+                                responseType: context.responseType === 'arraybuffer' ? 'arraybuffer' : 'text',
+                                headers
+                            })
+                            .then((res: any) => {
+                                const tload = performance.now();
+                                this.stats.tload = tload;
+                                this.stats.loaded = res.data?.byteLength || res.data?.length || 0;
+                                this.stats.total = this.stats.loaded;
+                                this.stats.parsing = { start: tload, end: tload };
+                                this.stats.buffering = { start: tload, end: tload };
+
+                                let data = res.data;
+                                if (context.responseType === 'text' && typeof data !== 'string') {
+                                    data = new TextDecoder().decode(res.data);
+                                }
+
+                                callbacks.onSuccess({ 
+                                    data, 
+                                    url: res.finalUrl || context.url,
+                                    code: res.status
+                                }, this.stats, context, res);
+                            })
+                            .catch((err: any) => {
+                                callbacks.onError({ code: 0, text: String(err) }, context, null);
+                            });
+                        } else {
+                            // Fallback if bridge is missing
+                            callbacks.onError({ code: 0, text: 'Bridge not found' }, context, null);
+                        }
+                    }
+
+                    abort() { this.stats.aborted = true; }
+                    destroy() {}
+                }
+                hlsConfig.fLoader = UserscriptLoader;
+                hlsConfig.pLoader = UserscriptLoader;
             }
             
             const hls = new Hls(hlsConfig);
