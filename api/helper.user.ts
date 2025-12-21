@@ -75,7 +75,7 @@ export default async function handler(req: any, res: any) {
     const parseHeaders = (headerStr) => {
         const headers = {};
         if (!headerStr) return headers;
-        headerStr.split(/[\\r\\n]+/).forEach(line => {
+        headerStr.split(/[\r\n]+/).forEach(line => {
             const parts = line.split(': ');
             if (parts.length >= 2) {
                 headers[parts[0].trim()] = parts.slice(1).join(': ').trim();
