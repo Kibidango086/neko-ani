@@ -20,8 +20,8 @@ export const Settings: React.FC = () => {
   const USERSCRIPT_CODE = `// ==UserScript==
 // @name         Neko-Ani Video Helper
 // @namespace    https://github.com/neko-stream/neko-ani
-// @version      1.2
-// @description  CORS bypass bridge for Neko-Ani
+// @version      1.3
+// @description  CORS bypass bridge with enhanced logging
 // @author       Neko-Ani
 // @match        *://*/*
 // @grant        GM_xmlhttpRequest
@@ -59,7 +59,7 @@ export const Settings: React.FC = () => {
     };
     window.NEKO_ANI_BRIDGE = bridge;
     if (typeof unsafeWindow !== 'undefined') unsafeWindow.NEKO_ANI_BRIDGE = bridge;
-    console.log('🐾 [Neko-Ani] Bridge Ready');
+    console.log('🐾 [Neko-Ani] Bridge Ready v1.3');
 })();`;
 
   const handleSave = () => {
