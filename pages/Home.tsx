@@ -2,16 +2,15 @@ import React, { useEffect, useState } from 'react';
 import { getCalendar } from '../services/bangumiService';
 import { BangumiSubject } from '../types';
 import { AnimeCard } from '../components/AnimeCard';
-import { SubjectStatus } from '../components/SubjectStatus';
 import { Loader2, User, Calendar, BookOpen } from 'lucide-react';
 import { useAppStore } from '../store';
 
 export const Home: React.FC = () => {
   const [trending, setTrending] = useState<BangumiSubject[]>([]);
   const [loading, setLoading] = useState(true);
-  const [collectionLoading, setCollectionLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'trending' | 'calendar' | 'collection'>('trending');
-  const { bangumiToken, userCollection, setBangumiToken, setUserCollection } = useAppStore();
+  
+  const [activeTab, setActiveTab] = useState<'trending' | 'calendar'>('trending');
+  const { bangumiToken, setBangumiToken } = useAppStore();
 
   useEffect(() => {
     const fetchTrending = async () => {
@@ -27,26 +26,12 @@ export const Home: React.FC = () => {
       }
     };
     
-    const fetchUserCollection = async () => {
-      if (!bangumiToken) return;
-      setCollectionLoading(true);
-      try {
-        const { getUserCollectionWithFallback } = await import('../services/bangumiService');
-        const collection = await getUserCollectionWithFallback(bangumiToken);
-        setUserCollection(collection);
-      } catch (error) {
-        console.error('Failed to fetch user collection:', error);
-      } finally {
-        setCollectionLoading(false);
-      }
-    };
+    
 
     if (activeTab === 'trending') {
       fetchTrending();
-    } else if (activeTab === 'collection') {
-      fetchUserCollection();
     }
-  }, [activeTab, bangumiToken, setUserCollection]);
+  }, [activeTab, bangumiToken]);
 
   const formatDate = (dateStr: string) => {
     try {
@@ -135,16 +120,7 @@ export const Home: React.FC = () => {
             >
               时间表
             </button>
-            <button
-              onClick={() => setActiveTab('collection')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                activeTab === 'collection'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-on-surface-variant hover:text-on-surface'
-              }`}
-            >
-              我的追番
-            </button>
+
           </nav>
         </div>
       </div>
@@ -177,11 +153,6 @@ export const Home: React.FC = () => {
                           : subject.eps ? `${subject.eps}集` : '未知'
                         }
                       </div>
-                    </div>
-
-                    {/* Subject Status */}
-                    <div className="absolute bottom-2 left-2">
-                      <SubjectStatus subject={subject} />
                     </div>
                   </div>
                 ))}
@@ -224,12 +195,7 @@ export const Home: React.FC = () => {
                           : subject.eps ? `${subject.eps}集` : '未知'
                         }
                       </div>
-                    </div>
-
-                    {/* Subject Status */}
-                    <div className="absolute bottom-2 left-2">
-                      <SubjectStatus subject={subject} />
-                    </div>
+</div>
                   </div>
                 ))}
               </div>
@@ -237,53 +203,7 @@ export const Home: React.FC = () => {
           </section>
         )}
 
-        {activeTab === 'collection' && (
-          <section>
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-medium text-on-surface tracking-tight">
-                我的追番
-              </h2>
-              {userCollection && (
-                <span className="text-sm text-on-surface-variant ml-4">
-                  共 {userCollection.data?.total || userCollection.data?.list?.length || 0} 部
-                </span>
-              )}
-            </div>
-            
-            {(!bangumiToken || collectionLoading) ? (
-              <div className="flex h-64 items-center justify-center">
-                <div className="text-center">
-                  <User className="w-16 h-16 text-on-surface-variant mb-4" />
-                  <p className="text-on-surface-variant">请先登录Bangumi账号</p>
-                  <p className="text-sm text-on-surface/80">
-                    登录后可同步您的追番列表
-                  </p>
-                </div>
-              </div>
-            ) : userCollection && userCollection.data && Array.isArray(userCollection.data.list) && userCollection.data.list.length > 0 ? (
-              <div className="space-y-4">
-                <p className="text-sm text-on-surface-variant">
-                  共 {userCollection.data.total || userCollection.data.list.length} 部追番记录
-                </p>
-                <div className="text-center py-8 text-on-surface-variant">
-                  <BookOpen className="w-16 h-16 text-on-surface-variant mb-4 mx-auto" />
-                  <p className="mb-2">追番列表功能正在开发中</p>
-                  <p className="text-sm text-on-surface/80">
-                    当前显示 {userCollection.data.list.length} 条记录
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-16">
-                <BookOpen className="w-16 h-16 text-on-surface-variant mb-4 mx-auto" />
-                <p className="text-on-surface-variant mb-2">还没有追番记录</p>
-                <p className="text-sm text-on-surface/80">
-                  在番剧详情页面添加到您的追番列表
-                </p>
-              </div>
-            )}
-          </section>
-        )}
+        
       </main>
     </div>
   );

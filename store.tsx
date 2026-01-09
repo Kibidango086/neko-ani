@@ -9,10 +9,6 @@ interface AppContextType {
   rawJson: string;
   browserlessEndpoints: string[];
   setBrowserlessEndpoints: (endpoints: string[]) => void;
-  userCollection: BangumiCollection | null;
-  setUserCollection: (collection: BangumiCollection | null) => void;
-  collectionLoading: boolean;
-  setCollectionLoading: (loading: boolean) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -35,13 +31,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return stored ? JSON.parse(stored) : [];
     } catch (e) { return []; }
   });
-  const [userCollection, setUserCollection] = useState<BangumiCollection | null>(() => {
-    try {
-        const stored = localStorage.getItem('user_collection');
-        return stored ? JSON.parse(stored) : null;
-    } catch (e) { return null; }
-  });
-  const [collectionLoading, setCollectionLoading] = useState(false);
+
 
   useEffect(() => {
     localStorage.setItem('bangumi_token', bangumiToken);
@@ -63,34 +53,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [rawJson]);
 
-  useEffect(() => {
-    if (userCollection) {
-      localStorage.setItem('user_collection', JSON.stringify(userCollection));
-    }
-  }, [userCollection]);
+  
 
   const setMediaSourceJson = (json: string) => {
     setRawJsonState(json);
   };
 
-  const fetchUserCollection = async (token: string) => {
-    if (!token) return;
-    
-    setCollectionLoading(true);
-    try {
-      const { getUserCollection } = await import('./services/bangumiService');
-      const collection = await getUserCollection(token);
-      setUserCollection(collection);
-    } catch (error) {
-      console.error('Failed to fetch user collection:', error);
-    } finally {
-      setCollectionLoading(false);
-    }
-  };
+
 
   useEffect(() => {
     if (bangumiToken) {
-      fetchUserCollection(bangumiToken);
+      
     }
   }, [bangumiToken]);
 
@@ -99,9 +72,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         bangumiToken, setBangumiToken, 
         mediaSources, setMediaSourceJson, 
         rawJson, 
-        browserlessEndpoints, setBrowserlessEndpoints,
-        userCollection, setUserCollection,
-        collectionLoading, setCollectionLoading
+        browserlessEndpoints, setBrowserlessEndpoints
     }}>
       {children}
     </AppContext.Provider>
