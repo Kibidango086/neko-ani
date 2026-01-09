@@ -81,6 +81,7 @@ export const UserscriptProvider: React.FC<{ children: ReactNode }> = ({ children
       if ((window as any).NEKO_ANI_BRIDGE_LOADED) {
         console.log('🔍 [Checker] Bridge found via LOADED marker');
         updateBridgeState({ version: (window as any).NEKO_ANI_BRIDGE_VERSION || bridge?.version });
+        setChecking(false);
       }
     }, 2000);
   };

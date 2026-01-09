@@ -17,7 +17,11 @@ export const Home: React.FC = () => {
     const fetchTrending = async () => {
       try {
         const data = await getCalendar();
-        setTrending(data);
+        // 确保 data 是数组
+        setTrending(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error('Failed to fetch calendar data:', error);
+        setTrending([]);
       } finally {
         setLoading(false);
       }
@@ -154,7 +158,7 @@ export const Home: React.FC = () => {
               <div className="flex justify-center items-center py-20">
                 <Loader2 className="animate-spin text-primary" size={32} />
               </div>
-            ) : (
+            ) : Array.isArray(trending) && trending.length > 0 ? (
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
                 {trending.map((subject) => (
                   <div key={subject.id} className="relative group">
@@ -178,6 +182,14 @@ export const Home: React.FC = () => {
                     </div>
                   </div>
                 ))}
+              </div>
+            ) : (
+              <div className="text-center py-16">
+                <BookOpen className="w-16 h-16 text-on-surface-variant mb-4 mx-auto" />
+                <p className="text-on-surface-variant mb-2">暂无本季新番数据</p>
+                <p className="text-sm text-on-surface/80">
+                  请稍后重试或检查网络连接
+                </p>
               </div>
             )}
           </section>
