@@ -4,6 +4,10 @@ export interface BangumiSubject {
   name: string;
   name_cn: string;
   summary: string;
+  eps: number;
+  eps_count: number;
+  air_date: string;
+  air_weekday: number;
   images: {
     small: string;
     grid: string;
@@ -14,14 +18,66 @@ export interface BangumiSubject {
   rating: {
     score: number;
     total: number;
+    rank: number;
   };
   date: string;
   tags: { name: string; count: number }[];
+  collection: {
+    wish: number;
+    collect: number;
+    doing: number;
+    on_hold: number;
+    dropped: number;
+  };
 }
 
 export interface BangumiSearchResponse {
   list: BangumiSubject[];
   results: number;
+}
+
+export interface BangumiCollection {
+  list: {
+    subject_id: number;
+    subject_type: number;
+    comment: string;
+    tags: string[];
+    private: boolean;
+    updated_at: string;
+    rate: number;
+    type: number;
+  }[];
+  total: number;
+  limit: number;
+  offset: number;
+  subject: {
+    id: number;
+    url: string;
+    type: number;
+    name: string;
+    name_cn: string;
+    summary: string;
+    images: {
+      small: string;
+      grid: string;
+      large: string;
+      medium: string;
+      common: string;
+    };
+    rating: {
+      score: number;
+      total: number;
+      rank: number;
+    };
+    collection: {
+      wish: number;
+      collect: number;
+      doing: number;
+      on_hold: number;
+      dropped: number;
+    };
+    tags: { name: string; count: number }[];
+  };
 }
 
 // Custom Source Configuration Types (Partial based on provided JSON)
