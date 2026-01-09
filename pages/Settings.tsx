@@ -73,7 +73,7 @@ export const Settings: React.FC = () => {
                     className="w-full bg-transparent border-none rounded-xl p-4 text-on-surface placeholder-on-surface-variant/50 focus:ring-0 focus:bg-surface-variant/20 transition-all outline-none"
                 />
             </div>
-            <p className="text-sm text-on-surface-variant px-2">Required only for user-specific features like collection syncing.</p>
+            <p className="text-sm text-on-surface-variant px-2"> <a href="https://next.bgm.tv/demo/access-token" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1">https://next.bgm.tv/demo/access-token <ExternalLink size={12} /> </a></p>
         </div>
 
         {/* Browserless Endpoints */}
@@ -125,6 +125,7 @@ export const Settings: React.FC = () => {
                     </div>
                 )}
             </div>
+            <p className="text-sm text-on-surface-variant px-2"> <a href="https://browserless.io" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1">browserless.io <ExternalLink size={12} /> </a></p>
             <p className="text-sm text-on-surface-variant px-2 leading-relaxed">
                 <strong>Mandatory for Video Extraction:</strong> All video extraction uses Browserless service. Multiple keys will be rotated automatically for better reliability.
             </p>
@@ -143,7 +144,7 @@ export const Settings: React.FC = () => {
             </div>
             <p className="text-sm text-on-surface-variant px-2 flex items-center gap-2">
                 <AlertTriangle size={14} className="text-yellow-500" />
-                Source configuration for video sites and parsing rules. Video extraction uses Browserless service.
+                Source configuration for video sites and parsing rules. Refer to the subscription at <a href="https://github.com/open-ani/animeko" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1">github.com/open-ani/animeko <ExternalLink size={12} /></a>
             </p>
         </div>
 

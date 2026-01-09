@@ -36,28 +36,25 @@ export const Home: React.FC = () => {
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-3 bg-primary-container text-on-primary-container rounded-2xl shadow-lg">
-                <BookOpen className="text-primary" size={20} />
-              </div>
               <h1 className="text-2xl font-bold text-on-surface">Neko-Ani</h1>
             </div>
             
             {bangumiToken ? (
               <div className="flex items-center gap-2 px-6 py-4 bg-surface-container rounded-2xl">
                 <User className="text-primary" size={16} />
-                <span className="text-sm font-medium text-on-surface-variant">已登录</span>
+                <span className="text-sm font-medium text-on-surface-variant">Logined in</span>
               </div>
             ) : (
               <button
                 onClick={() => {
-                  const token = prompt('请输入Bangumi Access Token:');
+                  const token = prompt('Bangumi Access Token:');
                   if (token) {
                     setBangumiToken(token);
                   }
                 }}
                 className="bg-primary text-on-primary px-6 py-3 rounded-2xl font-medium hover:bg-primary/90 transition-all duration-200 shadow-lg hover:shadow-primary/30 flex items-center gap-2"
               >
-                登录 Bangumi
+                Login with Bangumi
               </button>
             )}
           </div>
@@ -78,7 +75,7 @@ export const Home: React.FC = () => {
             >
               <div className="flex items-center justify-center gap-2">
                 <TrendingUp className={`${activeTab === 'trending' ? 'text-primary' : 'text-on-surface-variant'}`} size={18} />
-                <span>本季新番</span>
+                <span>This Season</span>
               </div>
             </button>
             <button
@@ -91,7 +88,7 @@ export const Home: React.FC = () => {
             >
               <div className="flex items-center justify-center gap-2">
                 <Calendar className={`${activeTab === 'calendar' ? 'text-primary' : 'text-on-surface-variant'}`} size={18} />
-                <span>时间表</span>
+                <span>Schedule</span>
               </div>
             </button>
           </nav>
@@ -104,7 +101,7 @@ export const Home: React.FC = () => {
           <section className="space-y-8">
             <div className="mb-6">
               <h2 className="text-3xl font-medium text-on-surface tracking-tight">
-                本季新番
+                This Season
               </h2>
             </div>
             
@@ -112,7 +109,7 @@ export const Home: React.FC = () => {
               <div className="flex justify-center items-center py-20">
                 <div className="text-center">
                   <Loader2 className="animate-spin text-primary mx-auto" size={32} />
-                  <p className="mt-4 text-on-surface-variant">加载中...</p>
+                  <p className="mt-4 text-on-surface-variant">Loading...</p>
                 </div>
               </div>
             ) : Array.isArray(trending) && trending.length > 0 ? (
@@ -129,9 +126,9 @@ export const Home: React.FC = () => {
                   <div className="inline-flex p-4 bg-surface-container rounded-2xl mb-4">
                     <Calendar className="text-on-surface-variant" size={32} />
                   </div>
-                  <h3 className="text-xl font-medium text-on-surface mb-2">暂无本季新番</h3>
+                  <h3 className="text-xl font-medium text-on-surface mb-2">No data available</h3>
                   <p className="text-sm text-on-surface-variant max-w-md">
-                    请稍后重试或检查网络连接
+                    Please try again later or check your network connection
                   </p>
                 </div>
               </div>
@@ -143,7 +140,7 @@ export const Home: React.FC = () => {
           <section className="space-y-8">
             <div className="mb-6">
               <h2 className="text-3xl font-medium text-on-surface tracking-tight">
-                放送时间表
+                放送Schedule
               </h2>
             </div>
             
@@ -151,7 +148,7 @@ export const Home: React.FC = () => {
               <div className="flex justify-center items-center py-20">
                 <div className="text-center">
                   <Loader2 className="animate-spin text-primary mx-auto" size={32} />
-                  <p className="mt-4 text-on-surface-variant">加载中...</p>
+                  <p className="mt-4 text-on-surface-variant">Loading...</p>
                 </div>
               </div>
             ) : Array.isArray(trending) && trending.length > 0 ? (
@@ -168,9 +165,9 @@ export const Home: React.FC = () => {
                   <div className="inline-flex p-4 bg-surface-container rounded-2xl mb-4">
                     <Calendar className="text-on-surface-variant" size={32} />
                   </div>
-                  <h3 className="text-xl font-medium text-on-surface mb-2">暂无放送数据</h3>
+                  <h3 className="text-xl font-medium text-on-surface mb-2">No data available</h3>
                   <p className="text-sm text-on-surface-variant max-w-md">
-                    请稍后重试或检查网络连接
+                    Please try again later or check your network connection
                   </p>
                 </div>
               </div>
