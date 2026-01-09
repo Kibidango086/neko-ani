@@ -9,8 +9,21 @@ interface SubjectStatusProps {
 
 export const SubjectStatus: React.FC<SubjectStatusProps> = ({ subject, onStatusChange }) => {
   const { collection } = subject;
+  
+  // 安全检查：如果 collection 不存在，显示默认状态
+  if (!collection) {
+    return (
+      <div className="relative group">
+        <button className="flex items-center gap-2 p-2 bg-surface-container-high rounded-xl">
+          <Plus className="text-gray-400" size={16} />
+          <span className="text-xs font-medium text-gray-400">未标记</span>
+        </button>
+      </div>
+    );
+  }
 
   const getStatusColor = () => {
+    if (!collection) return 'text-gray-400';
     if (collection.doing > 0) return 'text-blue-500';
     if (collection.collect > 0) return 'text-green-500';
     if (collection.on_hold > 0) return 'text-orange-500';
@@ -19,6 +32,7 @@ export const SubjectStatus: React.FC<SubjectStatusProps> = ({ subject, onStatusC
   };
 
   const getStatusText = () => {
+    if (!collection) return '未标记';
     if (collection.doing > 0) return '在看';
     if (collection.collect > 0) return '已看';
     if (collection.on_hold > 0) return '搁置';

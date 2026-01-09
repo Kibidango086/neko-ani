@@ -63,6 +63,9 @@ export const Home: React.FC = () => {
 
   const getEpisodeStatus = (subject: BangumiSubject) => {
     const { collection } = subject;
+    if (!collection) {
+      return { current: 0, total: 0, text: '未开始', color: 'text-gray-500' };
+    }
     if (collection?.doing > 0) {
       const current = collection.doing;
       const total = subject.eps || 0;
