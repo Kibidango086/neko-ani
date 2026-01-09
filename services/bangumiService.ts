@@ -123,26 +123,32 @@ export const getUserCollectionWithFallback = async (accessToken: string, subject
         limit
       });
       
-      if (collection && collection.list && collection.list.total > 0) {
+      if (collection && collection.list && collection.list.length > 0) {
         return collection;
       }
       
-      // 回退到后端API
-      console.log('Fallback to backend API for user collection');
-      const response = await fetch(`${BASE_URL}/user/collection/${subjectType}?limit=${limit}`, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
+      console.log('Userscript returned empty collection, returning default');
+      return {
+        list: [],
+        total: 0,
+        limit: 0,
+        offset: 0,
+        subject: {
+          id: 0,
+          url: '',
+          type: 0,
+          name: '',
+          name_cn: '',
+          summary: '',
+          images: { small: '', grid: '', large: '', medium: '', common: '' },
+          rating: { score: 0, total: 0, rank: 0 },
+          collection: { wish: 0, collect: 0, doing: 0, on_hold: 0, dropped: 0 },
+          tags: []
         }
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch user collection: ${response.status}`);
-      }
-
-      const data = await response.json();
-      return data;
+      };
     } catch (error) {
-      console.error('User collection error:', error);
+      console.error('User collection error (userscript failed):', error);
+      // Return empty collection instead of falling back to direct API to avoid CORS
       return {
         list: [],
         total: 0,
@@ -181,25 +187,11 @@ export const getSubjectWatchStatusWithFallback = async (
         return status;
       }
       
-      // 回退到后端API
-      console.log('Fallback to backend API for watch status');
-      const response = await fetch(`${BASE_URL}/user/subject/${subjectId}`, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to get watch status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      return {
-        watching: data.watching || 0,
-        total: data.total || 0
-      };
+      console.log('Userscript returned empty status, returning default');
+      return { watching: 0, total: 0 };
     } catch (error) {
-      console.error('Watch status error:', error);
+      console.error('Watch status error (userscript failed):', error);
+      // Return default values instead of falling back to direct API to avoid CORS
       return { watching: 0, total: 0 };
     }
   };
@@ -226,29 +218,11 @@ export const updateCollectionStatusWithFallback = async (
         return;
       }
       
-      // 回退到后端API
-      console.log('Fallback to backend API for collection update');
-      const body: any = { type };
-      if (comment) {
-        body.comment = comment;
-      }
-
-      const response = await fetch(`${BASE_URL}/collection/${subjectId}/update`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(body)
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to update collection status: ${response.status}`);
-      }
-
-      console.log('Collection status updated via backend API');
+      throw new Error('Userscript update failed');
     } catch (error) {
-      console.error('Collection Update Error:', error);
+      console.error('Collection Update Error (userscript failed):', error);
+      // Don't fallback to direct API to avoid CORS issues
+      throw error;
     }
   };
 

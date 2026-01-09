@@ -42,7 +42,7 @@ export const Home: React.FC = () => {
     } else if (activeTab === 'collection') {
       fetchUserCollection();
     }
-  }, [activeTab, bangumiToken]);
+  }, [activeTab, bangumiToken, setUserCollection]);
 
   const formatDate = (dateStr: string) => {
     try {
@@ -104,49 +104,94 @@ export const Home: React.FC = () => {
         </div>
       </header>
 
-      {/* Navigation Tabs */}
-      <div className="bg-surface/50">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex border-b border-outline/20">
+      {/* Tab Navigation */}
+      <div className="bg-surface/50 sticky top-0 z-40 backdrop-blur-sm">
+        <div className="max-w-7xl mx-auto px-4">
+          <nav className="flex space-x-8">
             <button
               onClick={() => setActiveTab('trending')}
-              className={`flex items-center gap-2 px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'trending' 
-                  ? 'text-primary border-primary' 
-                  : 'text-on-surface-variant border-transparent hover:text-on-surface'
+              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'trending'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-on-surface-variant hover:text-on-surface'
               }`}
             >
-              <Calendar className="w-4 h-4" />
               本季新番
             </button>
             <button
-              onClick={() => setActiveTab('collection')}
-              className={`flex items-center gap-2 px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'collection' 
-                  ? 'text-primary border-primary' 
-                  : 'text-on-surface-variant border-transparent hover:text-on-surface'
+              onClick={() => setActiveTab('calendar')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'calendar'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-on-surface-variant hover:text-on-surface'
               }`}
             >
-              <BookOpen className="w-4 h-4" />
+              时间表
+            </button>
+            <button
+              onClick={() => setActiveTab('collection')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'collection'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-on-surface-variant hover:text-on-surface'
+              }`}
+            >
               我的追番
             </button>
-          </div>
+          </nav>
         </div>
       </div>
 
-      {/* Content */}
-      <main className="max-w-7xl mx-auto p-4">
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 py-8">
         {activeTab === 'trending' && (
           <section>
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-medium text-on-surface tracking-tight">
-                    Trending Now
-              </h2>
-            </div>
+            <h2 className="text-2xl font-medium text-on-surface tracking-tight">
+              本季新番
+            </h2>
             
             {loading ? (
-              <div className="flex h-64 items-center justify-center">
-                <Loader2 className="animate-spin text-primary" size={40} />
+              <div className="flex justify-center items-center py-20">
+                <Loader2 className="animate-spin text-primary" size={32} />
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+                {trending.map((subject) => (
+                  <div key={subject.id} className="relative group">
+                    <AnimeCard subject={subject} />
+                    
+                    {/* Episode Progress Badge */}
+                    <div className="absolute top-2 right-2">
+                      <div className={`text-xs font-medium px-2 py-1 rounded-full ${
+                        subject.air_date ? 'bg-primary/20 text-primary' : 'bg-surface-variant text-on-surface-variant'
+                      }`}>
+                        {subject.air_date ? 
+                          `第${subject.air_weekday || 1}集` 
+                          : subject.eps ? `${subject.eps}集` : '未知'
+                        }
+                      </div>
+                    </div>
+
+                    {/* Subject Status */}
+                    <div className="absolute bottom-2 left-2">
+                      <SubjectStatus subject={subject} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {activeTab === 'calendar' && (
+          <section>
+            <h2 className="text-2xl font-medium text-on-surface tracking-tight">
+              放送时间表
+            </h2>
+            
+            {loading ? (
+              <div className="flex justify-center items-center py-20">
+                <Loader2 className="animate-spin text-primary" size={32} />
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
@@ -181,7 +226,7 @@ export const Home: React.FC = () => {
           <section>
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-medium text-on-surface tracking-tight">
-                    我的追番
+                我的追番
               </h2>
               {userCollection && (
                 <span className="text-sm text-on-surface-variant ml-4">
@@ -200,39 +245,18 @@ export const Home: React.FC = () => {
                   </p>
                 </div>
               </div>
-            ) : userCollection && userCollection.list?.length > 0 ? (
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {userCollection.list?.map((item) => (
-                  <div key={item.subject.id} className="bg-surface-container rounded-2xl p-4 shadow-sm hover:shadow-md transition-all">
-                    <div className="flex items-start gap-4">
-                      <img 
-                        src={item.subject.images?.grid || item.subject.images?.large || ''} 
-                        alt={item.subject.name}
-                        className="w-16 h-16 object-cover rounded-lg bg-surface-variant"
-                        onError={(e) => {
-                          e.currentTarget.src = '';
-                        }}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-medium text-on-surface mb-1">
-                          {item.subject.name_cn || item.subject.name}
-                        </h3>
-                        <p className="text-sm text-on-surface-variant mb-2 line-clamp-2">
-                          {item.subject.summary}
-                        </p>
-                        
-                        <div className="flex items-center justify-between">
-                          <span className={`text-sm font-medium ${getEpisodeStatus(item.subject).color}`}>
-                            {getEpisodeStatus(item.subject).text}
-                          </span>
-                          <span className="text-xs text-on-surface/80">
-                            {item.subject.air_date && `首播: ${formatDate(item.subject.air_date)}`}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+            ) : userCollection && Array.isArray(userCollection.list) && userCollection.list.length > 0 ? (
+              <div className="space-y-4">
+                <p className="text-sm text-on-surface-variant">
+                  共 {userCollection.total || userCollection.list.length} 部追番记录
+                </p>
+                <div className="text-center py-8 text-on-surface-variant">
+                  <BookOpen className="w-16 h-16 text-on-surface-variant mb-4 mx-auto" />
+                  <p className="mb-2">追番列表功能正在开发中</p>
+                  <p className="text-sm text-on-surface/80">
+                    当前显示 {userCollection.list.length} 条记录
+                  </p>
+                </div>
               </div>
             ) : (
               <div className="text-center py-16">
