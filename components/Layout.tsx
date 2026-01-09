@@ -3,6 +3,7 @@ import { Link, useLocation, Routes, Route, Navigate } from 'react-router-dom';
 import { Search, Home, Settings, Tv } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useAppStore } from '../store';
+import { UserscriptBanner } from './UserscriptBanner';
 import { Home as HomePage } from '../pages/Home'; // Renamed to avoid conflict with lucide-react Home
 import { Search as SearchPage } from '../pages/Search';
 import { Details } from '../pages/Details';
@@ -59,6 +60,9 @@ export const Layout: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background text-on-surface flex flex-col md:flex-row font-sans">
+      {/* Userscript Banner */}
+      <UserscriptBanner />
+      
       {/* Desktop Navigation Rail */}
       <div className="hidden md:flex fixed left-0 top-0 bottom-0 w-20 flex-col items-center py-8 space-y-8 bg-surface-container z-50">
          <Link to="/" className="mb-4">
@@ -77,7 +81,7 @@ export const Layout: React.FC = () => {
       {/* Main Content Wrapper */}
       <div className="flex-1 flex flex-col md:pl-20 min-w-0">
         {/* Mobile Header */}
-        <header className="md:hidden sticky top-0 z-40 bg-surface/80 backdrop-blur-md px-4 py-3 flex items-center justify-between">
+        <header className="md:hidden sticky top-16 z-40 bg-surface/80 backdrop-blur-md px-4 py-3 flex items-center justify-between">
           <Link to="/" className="flex items-center space-x-2">
               <div className="w-8 h-8 bg-primary-container text-on-primary-container rounded-xl flex items-center justify-center">
                   <Tv className="w-5 h-5" />
@@ -90,7 +94,7 @@ export const Layout: React.FC = () => {
         </header>
 
         {/* Main Content */}
-        <main className="flex-1 overflow-y-auto p-4 pb-24 md:pb-8 w-full">
+        <main className="flex-1 overflow-y-auto p-4 pb-24 md:pb-8 mt-16 md:mt-0 w-full">
           <AnimatePresence mode="wait" initial={false}>
             <Routes location={location}>
               <Route

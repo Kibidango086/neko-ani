@@ -18,22 +18,7 @@ const checkUserscriptBridge = (): Promise<void> => {
   });
 };
 
-// Helper to call userscript bridge
-const callUserscriptBridge = async <T>(
-  method: string,
-  payload: any
-): Promise<T> => {
-  await checkUserscriptBridge();
-  
-  const bridge = window.NEKO_ANI_BRIDGE;
-  if (!bridge[method] || typeof bridge[method] !== 'function') {
-    throw new Error(`Method ${method} not available in userscript bridge`);
-  }
-  
-  return bridge[method](payload.source, payload.keyword || payload.detailUrl || payload.episodeUrl);
-};
-
-// Fallback to backend API if userscript is not available
+// Helper to pick a random browserless endpoint
 const getBrowserlessEndpoint = (): string | undefined => {
     try {
         const stored = localStorage.getItem('browserless_endpoints');
@@ -47,6 +32,7 @@ const getBrowserlessEndpoint = (): string | undefined => {
     return undefined;
 };
 
+// Backend API for video extraction only
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 const callBackendApi = async <T>(
@@ -67,6 +53,21 @@ const callBackendApi = async <T>(
   }
 
   return response.json() as Promise<T>;
+};
+
+// Helper to call userscript bridge
+const callUserscriptBridge = async <T>(
+  method: string,
+  payload: any
+): Promise<T> => {
+  await checkUserscriptBridge();
+  
+  const bridge = window.NEKO_ANI_BRIDGE;
+  if (!bridge[method] || typeof bridge[method] !== 'function') {
+    throw new Error(`Method ${method} not available in userscript bridge`);
+  }
+  
+  return bridge[method](payload.source, payload.keyword || payload.detailUrl || payload.episodeUrl);
 };
 
 
@@ -105,7 +106,6 @@ export const searchSource = async (
   if (cached) return cached;
 
   try {
-    // Try userscript bridge first
     const results = await callUserscriptBridge<VideoSourceResult[]>('searchSource', {
       source,
       keyword,
@@ -113,18 +113,8 @@ export const searchSource = async (
     setCache(cacheKey, results);
     return results;
   } catch (userscriptError) {
-    console.warn('Userscript bridge failed, falling back to backend API:', userscriptError);
-    try {
-      const results = await callBackendApi<VideoSourceResult[]>('/search', {
-        source,
-        keyword,
-      });
-      setCache(cacheKey, results);
-      return results;
-    } catch (backendError) {
-      console.error('Both userscript and backend API failed:', backendError);
-      return [];
-    }
+    console.error('Userscript search failed:', userscriptError);
+    throw new Error('Please install and enable the Neko-Ani userscript for search functionality');
   }
 };
 
@@ -138,7 +128,6 @@ export const getEpisodes = async (
     if (cached) return cached;
 
     try {
-      // Try userscript bridge first
       const eps = await callUserscriptBridge<VideoEpisode[]>('getEpisodes', {
         source,
         detailUrl,
@@ -146,18 +135,8 @@ export const getEpisodes = async (
       setCache(cacheKey, eps);
       return eps;
     } catch (userscriptError) {
-      console.warn('Userscript bridge failed, falling back to backend API:', userscriptError);
-      try {
-        const eps = await callBackendApi<VideoEpisode[]>('/episodes', {
-          source,
-          detailUrl,
-        });
-        setCache(cacheKey, eps);
-        return eps;
-      } catch (backendError) {
-        console.error('Both userscript and backend API failed:', backendError);
-        return [];
-      }
+      console.error('Userscript episodes failed:', userscriptError);
+      throw new Error('Please install and enable the Neko-Ani userscript for episode functionality');
     }
 };
 

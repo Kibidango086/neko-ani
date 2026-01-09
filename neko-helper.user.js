@@ -197,12 +197,20 @@
         version: '2.0',
         fetch: (url, options = {}) => {
             return new Promise((resolve, reject) => {
-                log('Fetching:', url);
+                log('Fetching:', url, '#007bff');
                 
                 const requestHeaders = Object.assign({}, options.headers || {});
                 if (requestHeaders['X-Neko-Referer']) {
                     requestHeaders['Referer'] = requestHeaders['X-Neko-Referer'];
                     delete requestHeaders['X-Neko-Referer'];
+                }
+
+                // Add CORS headers if not present
+                if (!requestHeaders['Origin']) {
+                    requestHeaders['Origin'] = window.location.origin;
+                }
+                if (!requestHeaders['Referer']) {
+                    requestHeaders['Referer'] = (new URL(url)).origin;
                 }
 
                 GM_xmlhttpRequest({
@@ -211,23 +219,23 @@
                     headers: requestHeaders,
                     data: options.body,
                     responseType: options.responseType || 'arraybuffer',
-                    timeout: 15000,
+                    timeout: 30000, // Increased timeout for video files
                     onload: (res) => {
-                        log(`Done (${res.status}):`, url, res.status >= 400 ? 'red' : '#00ff00');
+                        log(`✅ Done (${res.status}):`, url, res.status >= 400 ? 'red' : '#00ff00');
                         resolve({
                             status: res.status,
                             data: res.response,
                             headers: res.responseHeaders,
-                            finalUrl: res.finalUrl
+                            finalUrl: res.finalUrl || url
                         });
                     },
                     onerror: (err) => {
-                        log('Error:', { url, err }, 'red');
-                        reject(err);
+                        log(`❌ GM_xmlhttpRequest Error:`, { url, error: err }, 'red');
+                        reject(new Error(`GM_xmlhttpRequest failed: ${err}`));
                     },
                     ontimeout: () => {
-                        log('Timeout:', url, 'orange');
-                        reject(new Error('Timeout'));
+                        log(`⏰ Timeout after 30s:`, url, 'orange');
+                        reject(new Error('Request timeout (30s)'));
                     }
                 });
             });

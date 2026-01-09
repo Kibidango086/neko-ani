@@ -10,7 +10,7 @@ import Hls from 'hls.js';
 export const Details: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { mediaSources, useUserscript } = useAppStore();
+  const { mediaSources } = useAppStore();
   
   const [subject, setSubject] = useState<BangumiSubject | null>(null);
   const [loading, setLoading] = useState(true);
@@ -57,9 +57,16 @@ export const Details: React.FC = () => {
                 hlsRef.current.destroy();
             }
             
-            const hlsConfig: any = {};
+            const hlsConfig: any = {
+                // Force HLS.js to use our loader for all network requests
+                debug: true,
+                enableWorker: false, // Disable worker to ensure our loader is used
+            };
 
-            if (useUserscript) {
+            // Check if userscript bridge is available
+            const hasUserscript = !!(window as any).NEKO_ANI_BRIDGE;
+            
+            if (hasUserscript) {
                 console.log('🚀 [Player] Initializing Userscript Bridge Loader');
                 
                 class UserscriptLoader {
@@ -92,6 +99,8 @@ export const Details: React.FC = () => {
                             return;
                         }
 
+                        console.log('📡 [Player] UserscriptLoader loading:', context.url, 'Type:', context.responseType);
+                        
                         const now = performance.now();
                         this.stats.trequest = now;
                         this.stats.loading.start = now;
@@ -100,13 +109,25 @@ export const Details: React.FC = () => {
                         const currentSource = (window as any).CURRENT_SOURCE_URL;
                         if (currentSource) headers['X-Neko-Referer'] = currentSource;
 
+                        // Ensure correct response type for HLS.js
+                        const responseType = context.responseType === 'arraybuffer' ? 'arraybuffer' : 'text';
+
                         bridge.fetch(context.url, { 
-                            responseType: context.responseType === 'arraybuffer' ? 'arraybuffer' : 'text',
-                            headers
+                            responseType,
+                            headers,
+                            method: 'GET'
                         })
                         .then((res: any) => {
+                            console.log('✅ [Player] Bridge response:', {
+                                url: context.url,
+                                status: res.status,
+                                finalUrl: res.finalUrl,
+                                dataLength: res.data?.byteLength || res.data?.length
+                            });
+
                             // 处理 400 等错误状态，不让 hls.js 尝试解析错误页面
                             if (res.status >= 400) {
+                                console.error('❌ [Player] HTTP Error:', res.status);
                                 throw new Error(`HTTP Error ${res.status}`);
                             }
 
@@ -178,7 +199,7 @@ export const Details: React.FC = () => {
     return () => {
         if (hlsRef.current) hlsRef.current.destroy();
     };
-  }, [videoUrl, useUserscript]);
+  }, [videoUrl]);
 
   const handleSearchSources = async () => {
     if (!subject) return;

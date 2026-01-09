@@ -33,21 +33,23 @@ cp .env.example .env
 npm run dev
 ```
 
-### 4. 配置关键服务
+### 4. 配置关键服务（强制要求）
 
-#### 油猴脚本（推荐）
-为了获得最佳搜索体验：
+#### 油猴脚本（必需）
+Neko-Ani **强制要求**安装油猴脚本才能运行：
 1. 安装 [Tampermonkey](https://www.tampermonkey.net/) 浏览器扩展。
-2. 进入应用的 **Settings (设置)** 页面。
-3. 点击 **Install Helper Script** 自动安装油猴脚本。
-4. 安装完成后即可享受快速的搜索和剧集获取。
+2. 访问应用时会自动显示安装横幅。
+3. 点击 **Install Userscript** 安装最新版本的油猴脚本。
+4. 刷新页面完成安装。
+
+⚠️ **注意**：未安装油猴脚本时，应用的所有功能都将不可用。
 
 #### Browserless API（必需）
 视频提取需要Browserless服务：
 1. 在 [Browserless.io](https://browserless.io/) 注册账号。
 2. 获取API密钥。
 3. 在 **Settings** 页面的 **Browserless API Keys** 部分添加您的密钥。
-4. 可以添加多个密钥实现负载均衡。
+4. 可以添加多个密钥实现负载均衡和故障转移。
 
 ## 🏗️ 架构说明
 

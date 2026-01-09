@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAppStore } from '../store';
-import { Save, AlertTriangle, CheckCircle, Plus, Trash2, Server, Download, ShieldCheck, ExternalLink, X } from 'lucide-react';
+import { useUserscript } from '../components/UserscriptChecker';
+import { Save, AlertTriangle, CheckCircle, Plus, Trash2, Server, Download, ShieldCheck, ExternalLink } from 'lucide-react';
 
 export const Settings: React.FC = () => {
   const { 
@@ -14,29 +15,8 @@ export const Settings: React.FC = () => {
   const [localEndpoints, setLocalEndpoints] = useState<string[]>(browserlessEndpoints);
   const [newEndpoint, setNewEndpoint] = useState('');
   const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
-  const [showUserscriptBanner, setShowUserscriptBanner] = useState(false);
-  const [userscriptInstalled, setUserscriptInstalled] = useState(false);
-
-  // Check if userscript is installed
-  useEffect(() => {
-    const checkInterval = setInterval(() => {
-      if (window.NEKO_ANI_BRIDGE) {
-        setUserscriptInstalled(true);
-        setShowUserscriptBanner(false);
-        clearInterval(checkInterval);
-      }
-    }, 500);
-
-    // Show banner after 3 seconds if not found
-    setTimeout(() => {
-      if (!window.NEKO_ANI_BRIDGE) {
-        setShowUserscriptBanner(true);
-        clearInterval(checkInterval);
-      }
-    }, 3000);
-
-    return () => clearInterval(checkInterval);
-  }, []);
+  
+  const { isInstalled, isLatestVersion, version } = useUserscript();
 
   const handleSave = () => {
     try {
@@ -64,49 +44,17 @@ export const Settings: React.FC = () => {
 
   return (
     <div className="max-w-3xl mx-auto space-y-10 p-4 md:p-8">
-        {/* Userscript Banner */}
-        {showUserscriptBanner && (
-            <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-2xl p-6 relative">
-                <button
-                    onClick={() => setShowUserscriptBanner(false)}
-                    className="absolute top-4 right-4 text-on-surface-variant hover:text-on-surface"
-                >
-                    <X size={16} />
-                </button>
-                <div className="flex items-start gap-4">
-                    <div className="p-2 bg-blue-500/20 rounded-xl">
-                        <ShieldCheck className="text-blue-500" size={20} />
-                    </div>
-                    <div className="flex-1">
-                        <h3 className="font-bold text-on-surface mb-2">Install Userscript for Better Experience</h3>
-                        <p className="text-sm text-on-surface-variant mb-4">
-                            Install the Tampermonkey script to bypass all restrictions and get faster video extraction. This is highly recommended for the best experience.
-                        </p>
-                        <div className="flex items-center gap-3">
-                            <a 
-                                href="/api/helper.user.js" 
-                                target="_blank"
-                                className="flex items-center gap-2 bg-primary text-on-primary px-4 py-2 rounded-xl text-sm font-bold transition-all hover:scale-[1.02] active:scale-95"
-                            >
-                                <Download size={14} />
-                                Install Script
-                            </a>
-                            <span className="text-xs text-on-surface-variant">
-                                Requires <a href="https://www.tampermonkey.net/" target="_blank" className="underline inline-flex items-center gap-1">Tampermonkey <ExternalLink size={10} /></a>
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        )}
+        {/* Status - Now handled by global banner */}
 
         {/* Status */}
-        {userscriptInstalled && (
-            <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4 flex items-center gap-3">
-                <CheckCircle className="text-green-500" size={20} />
+        {isInstalled && isLatestVersion && (
+            <div className="bg-primary-container text-on-primary-container rounded-2xl p-4 flex items-center gap-3">
+                <div className="p-2 bg-primary rounded-xl">
+                    <CheckCircle className="text-on-primary" size={20} />
+                </div>
                 <div>
-                    <p className="font-medium text-on-surface">Userscript Active</p>
-                    <p className="text-sm text-on-surface-variant">Version {window.NEKO_ANI_BRIDGE?.version} - All features enabled</p>
+                    <p className="font-medium text-on-primary-container">Userscript active</p>
+                    <p className="text-sm text-on-primary-container/80">Version {version} - All features enabled</p>
                 </div>
             </div>
         )}
@@ -132,7 +80,7 @@ export const Settings: React.FC = () => {
         <div className="space-y-4">
             <label className="block text-base font-medium text-on-surface">
                 Browserless API Keys
-                {!userscriptInstalled && <span className="text-[10px] bg-yellow-500/20 text-yellow-500 px-2 py-0.5 rounded-full uppercase ml-2">Fallback Mode</span>}
+                {(!isInstalled || !isLatestVersion) && <span className="text-[10px] bg-error-container text-on-error px-2 py-0.5 rounded-full uppercase ml-2">Limited</span>}
             </label>
             <div className="bg-surface-container rounded-2xl p-4 space-y-4">
                 <div className="flex gap-2">
@@ -155,16 +103,16 @@ export const Settings: React.FC = () => {
                 {localEndpoints.length > 0 ? (
                     <div className="space-y-2">
                         {localEndpoints.map((ep, idx) => (
-                            <div key={idx} className="flex items-center justify-between bg-surface-container-high p-3 rounded-xl group">
+                            <div key={idx} className="flex items-center justify-between bg-surface-container-high p-3 rounded-2xl group">
                                 <div className="flex items-center gap-3 overflow-hidden">
-                                    <div className="p-2 bg-secondary-container rounded-lg text-on-secondary-container">
+                                    <div className="p-2 bg-secondary-container rounded-xl text-on-secondary-container">
                                         <Server size={16} />
                                     </div>
                                     <span className="text-sm font-mono truncate text-on-surface">{ep}</span>
                                 </div>
                                 <button 
                                     onClick={() => removeEndpoint(idx)}
-                                    className="text-on-surface-variant hover:text-error p-2 rounded-lg hover:bg-error/10 transition-colors opacity-0 group-hover:opacity-100"
+                                    className="text-on-surface-variant hover:text-error p-2 rounded-xl hover:bg-error-container/10 transition-colors opacity-0 group-hover:opacity-100"
                                 >
                                     <Trash2 size={16} />
                                 </button>
@@ -172,7 +120,7 @@ export const Settings: React.FC = () => {
                         ))}
                     </div>
                 ) : (
-                    <div className="text-center py-6 text-on-surface-variant text-sm border border-dashed border-outline/20 rounded-xl">
+                    <div className="text-center py-6 text-on-surface-variant text-sm border border-dashed border-outline/20 rounded-2xl">
                         Required: API Keys for video extraction (Browserless service)
                     </div>
                 )}
