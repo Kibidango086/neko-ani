@@ -1,5 +1,19 @@
 import { MediaSource, VideoSourceResult, VideoEpisode } from '../types';
 
+// Type declarations for userscript bridge
+declare global {
+  interface Window {
+    NEKO_ANI_BRIDGE?: {
+      searchSource: (source: MediaSource, keyword: string) => Promise<VideoSourceResult[]>;
+      getEpisodes: (source: MediaSource, detailUrl: string) => Promise<VideoEpisode[]>;
+      getUserCollection: (payload: { accessToken: string; subjectType: number; limit: number }) => Promise<any>;
+      getSubjectWatchStatus: (payload: { accessToken: string; subjectId: number }) => Promise<{ watching: number; total: number }>;
+      updateCollectionStatus: (payload: { accessToken: string; subjectId: number; type: number; comment?: string }) => Promise<boolean>;
+      [key: string]: any;
+    };
+  }
+}
+
 // Check if userscript bridge is available
 const checkUserscriptBridge = (): Promise<void> => {
   return new Promise((resolve, reject) => {
@@ -56,7 +70,7 @@ const callBackendApi = async <T>(
 };
 
 // Helper to call userscript bridge
-const callUserscriptBridge = async <T>(
+export const callUserscriptBridge = async <T>(
   method: string,
   payload: any
 ): Promise<T> => {
@@ -67,7 +81,13 @@ const callUserscriptBridge = async <T>(
     throw new Error(`Method ${method} not available in userscript bridge`);
   }
   
-  return bridge[method](payload.source, payload.keyword || payload.detailUrl || payload.episodeUrl);
+  // Handle different payload structures for different methods
+  if (method === 'getUserCollection' || method === 'getSubjectWatchStatus' || method === 'updateCollectionStatus') {
+    return bridge[method](payload);
+  } else {
+    // Legacy methods for video sources
+    return bridge[method](payload.source, payload.keyword || payload.detailUrl || payload.episodeUrl);
+  }
 };
 
 

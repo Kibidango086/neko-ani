@@ -9,8 +9,9 @@ import { useAppStore } from '../store';
 export const Home: React.FC = () => {
   const [trending, setTrending] = useState<BangumiSubject[]>([]);
   const [loading, setLoading] = useState(true);
+  const [collectionLoading, setCollectionLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'trending' | 'calendar' | 'collection'>('trending');
-  const { bangumiToken, userCollection, setBangumiToken } = useAppStore();
+  const { bangumiToken, userCollection, setBangumiToken, setUserCollection } = useAppStore();
 
   useEffect(() => {
     const fetchTrending = async () => {
@@ -24,12 +25,15 @@ export const Home: React.FC = () => {
     
     const fetchUserCollection = async () => {
       if (!bangumiToken) return;
+      setCollectionLoading(true);
       try {
-        const { getUserCollection } = await import('../services/bangumiService');
-        const collection = await getUserCollection(bangumiToken);
-        setBangumiToken(collection);
+        const { getUserCollectionWithFallback } = await import('../services/bangumiService');
+        const collection = await getUserCollectionWithFallback(bangumiToken);
+        setUserCollection(collection);
       } catch (error) {
         console.error('Failed to fetch user collection:', error);
+      } finally {
+        setCollectionLoading(false);
       }
     };
 
@@ -181,7 +185,7 @@ export const Home: React.FC = () => {
               </h2>
               {userCollection && (
                 <span className="text-sm text-on-surface-variant ml-4">
-                  共 {userCollection.list?.total || 0} 部
+                  共 {userCollection.total || userCollection.list?.length || 0} 部
                 </span>
               )}
             </div>
@@ -196,9 +200,9 @@ export const Home: React.FC = () => {
                   </p>
                 </div>
               </div>
-            ) : userCollection && userCollection.list?.total > 0 ? (
+            ) : userCollection && userCollection.list?.length > 0 ? (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {userCollection.list?.subject?.map((item) => (
+                {userCollection.list?.map((item) => (
                   <div key={item.subject.id} className="bg-surface-container rounded-2xl p-4 shadow-sm hover:shadow-md transition-all">
                     <div className="flex items-start gap-4">
                       <img 

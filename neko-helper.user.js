@@ -241,7 +241,72 @@
             });
         },
         searchSource,
-        getEpisodes
+        getEpisodes,
+        
+        // Bangumi API methods for CORS bypass
+        getUserCollection: async ({ accessToken, subjectType = 2, limit = 20 }) => {
+            try {
+                const url = `https://api.bgm.tv/user/collection/${subjectType}?limit=${limit}`;
+                const result = await bridge.fetch(url, {
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                const data = JSON.parse(result.data);
+                log('✅ getUserCollection success:', data);
+                return data;
+            } catch (error) {
+                log('❌ getUserCollection error:', error, 'red');
+                throw error;
+            }
+        },
+        
+        getSubjectWatchStatus: async ({ accessToken, subjectId }) => {
+            try {
+                const url = `https://api.bgm.tv/user/subject/${subjectId}`;
+                const result = await bridge.fetch(url, {
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                const data = JSON.parse(result.data);
+                return {
+                    watching: data.watching || 0,
+                    total: data.total || 0
+                };
+            } catch (error) {
+                log('❌ getSubjectWatchStatus error:', error, 'red');
+                return { watching: 0, total: 0 };
+            }
+        },
+        
+        updateCollectionStatus: async ({ accessToken, subjectId, type, comment }) => {
+            try {
+                const url = `https://api.bgm.tv/collection/${subjectId}/update`;
+                const body = { type };
+                if (comment) body.comment = comment;
+                
+                const result = await bridge.fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(body)
+                });
+                
+                log('✅ updateCollectionStatus success:', { subjectId, type });
+                return true;
+            } catch (error) {
+                log('❌ updateCollectionStatus error:', error, 'red');
+                throw error;
+            }
+        }
     };
 
     // Multiple ways to ensure bridge is available
