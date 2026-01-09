@@ -79,6 +79,7 @@ export const getUserCollection = async (accessToken: string, subjectType: number
     }
 };
 
+// 在现有基础上，仅添加用户追番API功能
 export const updateCollectionStatus = async (
   accessToken: string, 
   subjectId: number, 
@@ -109,5 +110,32 @@ export const updateCollectionStatus = async (
       console.error('Bangumi Collection Update Error:', error);
       throw error;
     }
+  };
+
+// 检查追番状态的辅助函数
+export const getSubjectWatchStatus = async (
+  accessToken: string, 
+  subjectId: number
+): Promise<{ watching: number; total: number }> => {
+  try {
+    const response = await fetch(`${BASE_URL}/user/subject/${subjectId}`, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to get watch status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return {
+      watching: data.watching || 0,
+      total: data.total || 0
+    };
+  } catch (error) {
+    console.error('Get watch status error:', error);
+    return { watching: 0, total: 0 };
+  }
 };
 
