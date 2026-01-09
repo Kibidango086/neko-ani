@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Userscript Debug</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 4px; }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        .warning { background-color: #fff3cd; color: #856404; }
+        .property { background: #f8f9fa; padding: 10px; margin: 5px 0; border-radius: 4px; font-family: monospace; }
+        button { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; margin: 5px; }
+        button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <h1>Userscript Debug Tool</h1>
+    <div id="status" class="status info">Checking userscript status...</div>
+    
+    <div id="results"></div>
+    
+    <button onclick="checkAllProperties()">Check All Properties</button>
+    <button onclick="simulateUserscript()">Simulate Userscript</button>
+    <button onclick="clearResults()">Clear Results</button>
+
+    <script>
+        const statusEl = document.getElementById('status');
+        const resultsEl = document.getElementById('results');
+
+        function log(message, type = 'info') {
+            console.log(message);
+            const div = document.createElement('div');
+            div.className = `status ${type}`;
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}:</strong> ${message}`;
+            resultsEl.appendChild(div);
+        }
+
+        function checkProperty(prop, expected) {
+            const value = window[prop];
+            const found = value !== undefined;
+            const matches = expected ? value === expected : found;
+            
+            return {
+                property: prop,
+                value: value,
+                found: found,
+                matches: matches,
+                type: typeof value
+            };
+        }
+
+        function checkAllProperties() {
+            log('=== Checking All Userscript Properties ===', 'info');
+            
+            const checks = [
+                { prop: 'NEKO_ANI_BRIDGE', expected: null },
+                { prop: 'NEKO_ANI_BRIDGE_LOADED', expected: true },
+                { prop: 'NEKO_ANI_BRIDGE_VERSION', expected: '2.1' },
+                { prop: 'GM_xmlhttpRequest', expected: 'function' }
+            ];
+
+            checks.forEach(({ prop, expected }) => {
+                const result = checkProperty(prop, expected);
+                log(`${prop}: ${result.found ? '✅ FOUND' : '❌ NOT FOUND'} (${result.type}) - Value: ${JSON.stringify(result.value)}`, 
+                   result.matches ? 'success' : 'error');
+                
+                if (result.property === 'NEKO_ANI_BRIDGE' && result.found) {
+                    const bridge = result.value;
+                    if (bridge && typeof bridge === 'object') {
+                        log(`Bridge version: ${bridge.version || 'unknown'}`, 'info');
+                        log(`Bridge methods: ${Object.keys(bridge).filter(k => typeof bridge[k] === 'function').join(', ')}`, 'info');
+                    }
+                }
+            });
+        }
+
+        function simulateUserscript() {
+            log('=== Simulating Userscript Installation ===', 'warning');
+            
+            // Simulate the userscript
+            window.NEKO_ANI_BRIDGE = {
+                version: '2.1',
+                fetch: function(url, options) {
+                    return Promise.resolve({
+                        status: 200,
+                        data: 'simulated response',
+                        headers: 'simulated headers',
+                        finalUrl: url
+                    });
+                },
+                searchSource: function(source, keyword) {
+                    return Promise.resolve([]);
+                },
+                getEpisodes: function(source, detailUrl) {
+                    return Promise.resolve([]);
+                }
+            };
+            
+            window.NEKO_ANI_BRIDGE_LOADED = true;
+            window.NEKO_ANI_BRIDGE_VERSION = '2.1';
+            
+            // Dispatch ready event
+            if (typeof window.dispatchEvent === 'function') {
+                window.dispatchEvent(new CustomEvent('neko-ani-bridge-ready', { 
+                    detail: { version: '2.1' } 
+                }));
+            }
+            
+            log('✅ Userscript simulation complete', 'success');
+            setTimeout(checkAllProperties, 1000);
+        }
+
+        function clearResults() {
+            resultsEl.innerHTML = '';
+        }
+
+        // Auto check on load
+        window.addEventListener('load', () => {
+            setTimeout(checkAllProperties, 1000);
+        });
+
+        // Listen for bridge ready event
+        window.addEventListener('neko-ani-bridge-ready', (event) => {
+            log(`🎉 Bridge ready event received: ${JSON.stringify(event.detail)}`, 'success');
+            setTimeout(checkAllProperties, 500);
+        });
+
+        // Watch for property changes
+        let bridgeCount = 0;
+        const originalDefineProperty = Object.defineProperty;
+        
+        Object.defineProperty(window, 'NEKO_ANI_BRIDGE', {
+            configurable: true,
+            enumerable: true,
+            get: function() {
+                return this._bridgeValue;
+            },
+            set: function(value) {
+                bridgeCount++;
+                log(`🔄 NEKO_ANI_BRIDGE set (attempt ${bridgeCount}): ${typeof value} ${value ? '- ' + (value.version || 'object') : ''}`, 'info');
+                this._bridgeValue = value;
+                
+                if (value && typeof value === 'object' && value.version) {
+                    log(`✅ Final bridge established with version: ${value.version}`, 'success');
+                }
+            }
+        });
+    </script>
+</body>
+</html>

@@ -244,7 +244,30 @@
         getEpisodes
     };
 
+    // Multiple ways to ensure bridge is available
     window.NEKO_ANI_BRIDGE = bridge;
     if (typeof unsafeWindow !== 'undefined') unsafeWindow.NEKO_ANI_BRIDGE = bridge;
-    log('Bridge v2.1 Ready with search and episodes!');
+    
+    // Also expose to document for additional compatibility
+    document.NEKO_ANI_BRIDGE = bridge;
+    
+    // Dispatch custom event to signal script is ready
+    if (typeof window.dispatchEvent === 'function') {
+        window.dispatchEvent(new CustomEvent('neko-ani-bridge-ready', { detail: { version: '2.1' } }));
+    }
+    
+    // Add multiple markers for detection
+    window.NEKO_ANI_BRIDGE_LOADED = true;
+    window.NEKO_ANI_BRIDGE_VERSION = '2.1';
+    
+    log('Bridge v2.1 Ready with search and episodes!', '#00ff00');
+    
+    // Final verification
+    setTimeout(() => {
+        if (window.NEKO_ANI_BRIDGE && window.NEKO_ANI_BRIDGE.version === '2.1') {
+            log('✅ Bridge verification successful', '#00ff00');
+        } else {
+            log('⚠️ Bridge verification failed', 'orange');
+        }
+    }, 100);
 })();

@@ -20,30 +20,87 @@ export const UserscriptProvider: React.FC<{ children: ReactNode }> = ({ children
   const checkStatus = async () => {
     setChecking(true);
     
+    // Multiple detection strategies
+    let bridge = (window as any).NEKO_ANI_BRIDGE;
+    
+    // Strategy 1: Direct bridge check
+    if (bridge && bridge.version) {
+      console.log('🔍 [Checker] Bridge found via direct check:', bridge.version);
+      updateBridgeState(bridge);
+      return;
+    }
+    
+    // Strategy 2: Event listener (for scripts that load after page)
+    const handleReady = (event: any) => {
+      console.log('🔍 [Checker] Bridge found via event:', event.detail);
+      if (event.detail && event.detail.version) {
+        updateBridgeState({ version: event.detail.version });
+      }
+      window.removeEventListener('neko-ani-bridge-ready', handleReady);
+    };
+    
+    window.addEventListener('neko-ani-bridge-ready', handleReady);
+    
+    // Strategy 3: Polling with multiple checks
+    let attempts = 0;
+    const maxAttempts = 20; // 10 seconds with 500ms intervals
+    
     const checkInterval = setInterval(() => {
-      const bridge = (window as any).NEKO_ANI_BRIDGE;
+      attempts++;
+      bridge = (window as any).NEKO_ANI_BRIDGE;
       
-      if (bridge) {
+      // Multiple property checks for reliability
+      if (bridge && (
+        bridge.version ||
+        bridge.searchSource ||
+        bridge.getEpisodes ||
+        (window as any).NEKO_ANI_BRIDGE_LOADED ||
+        (window as any).NEKO_ANI_BRIDGE_VERSION
+      )) {
         clearInterval(checkInterval);
-        setIsInstalled(true);
-        setVersion(bridge.version || 'unknown');
-        
-        // Check version compatibility
-        const currentVersion = bridge.version || '0.0';
-        const isLatest = compareVersions(currentVersion, REQUIRED_VERSION) >= 0;
-        setIsLatestVersion(isLatest);
+        window.removeEventListener('neko-ani-bridge-ready', handleReady);
+        console.log('🔍 [Checker] Bridge found via polling after', attempts, 'attempts');
+        updateBridgeState(bridge);
+        return;
+      }
+      
+      if (attempts >= maxAttempts) {
+        clearInterval(checkInterval);
+        window.removeEventListener('neko-ani-bridge-ready', handleReady);
+        console.log('🔍 [Checker] Bridge not found after', maxAttempts, 'attempts');
+        setIsInstalled(false);
+        setVersion(null);
+        setIsLatestVersion(false);
         setChecking(false);
       }
     }, 500);
-
-    // Timeout after 5 seconds
+    
+    // Strategy 4: Additional markers
     setTimeout(() => {
-      clearInterval(checkInterval);
-      setIsInstalled(false);
-      setVersion(null);
-      setIsLatestVersion(false);
-      setChecking(false);
-    }, 5000);
+      bridge = (window as any).NEKO_ANI_BRIDGE;
+      if ((window as any).NEKO_ANI_BRIDGE_LOADED) {
+        console.log('🔍 [Checker] Bridge found via LOADED marker');
+        updateBridgeState({ version: (window as any).NEKO_ANI_BRIDGE_VERSION || bridge?.version });
+      }
+    }, 2000);
+  };
+  
+  const updateBridgeState = (bridge: any) => {
+    const currentVersion = bridge.version || bridge.NEKO_ANI_BRIDGE_VERSION || '2.1';
+    console.log('🔍 [Checker] Updating bridge state:', { version: currentVersion });
+    
+    setIsInstalled(true);
+    setVersion(currentVersion);
+    
+    const isLatest = compareVersions(currentVersion, REQUIRED_VERSION) >= 0;
+    setIsLatestVersion(isLatest);
+    setChecking(false);
+    
+    console.log('🔍 [Checker] Bridge state updated:', {
+      isInstalled: true,
+      version: currentVersion,
+      isLatest
+    });
   };
 
   const compareVersions = (current: string, required: string): number => {
@@ -65,10 +122,7 @@ export const UserscriptProvider: React.FC<{ children: ReactNode }> = ({ children
     // Initial check
     checkStatus();
     
-    // Re-check every 10 seconds in case userscript is loaded later
-    const interval = setInterval(checkStatus, 10000);
-    
-    return () => clearInterval(interval);
+    // Only check once, let the checkStatus function handle retries internally
   }, []);
 
   return (
