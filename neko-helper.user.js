@@ -246,7 +246,8 @@
         // Bangumi API methods for CORS bypass
         getUserCollection: async ({ accessToken, subjectType = 2, limit = 20 }) => {
             try {
-                const url = `https://api.bgm.tv/user/collection/${subjectType}?limit=${limit}`;
+                // 使用正确的 v0 API 端点
+                const url = `https://api.bgm.tv/v0/users/me/collections?subject_type=${subjectType}&limit=${limit}`;
                 const result = await bridge.fetch(url, {
                     headers: {
                         'Authorization': `Bearer ${accessToken}`,
@@ -264,8 +265,8 @@
                     const jsonString = decoder.decode(result.data);
                     data = JSON.parse(jsonString);
                 } else {
-                    // Try to parse directly
-                    data = JSON.parse(result.data);
+                    // result.data is already a JavaScript object
+                    data = result.data;
                 }
                 
                 log('✅ getUserCollection success:', data);
@@ -278,7 +279,8 @@
         
         getSubjectWatchStatus: async ({ accessToken, subjectId }) => {
             try {
-                const url = `https://api.bgm.tv/user/subject/${subjectId}`;
+                // 使用正确的 v0 API 端点
+                const url = `https://api.bgm.tv/v0/users/me/subjects/${subjectId}`;
                 const result = await bridge.fetch(url, {
                     headers: {
                         'Authorization': `Bearer ${accessToken}`,
@@ -295,7 +297,8 @@
                     const jsonString = decoder.decode(result.data);
                     data = JSON.parse(jsonString);
                 } else {
-                    data = JSON.parse(result.data);
+                    // result.data is already a JavaScript object
+                    data = result.data;
                 }
                 
                 return {
@@ -310,7 +313,8 @@
         
         updateCollectionStatus: async ({ accessToken, subjectId, type, comment }) => {
             try {
-                const url = `https://api.bgm.tv/collection/${subjectId}/update`;
+                // 使用正确的 v0 API 端点
+                const url = `https://api.bgm.tv/v0/users/-/collections/${subjectId}`;
                 const body = { type };
                 if (comment) body.comment = comment;
                 
@@ -335,8 +339,7 @@
         // Bangumi Calendar API for getting seasonal anime
         getCalendar: async () => {
             try {
-                const currentYear = new Date().getFullYear();
-                const url = `https://api.bgm.tv/calendar/${currentYear}`;
+                const url = 'https://api.bgm.tv/calendar';
                 const result = await bridge.fetch(url, {
                     headers: {
                         'Accept': 'application/json'
@@ -352,11 +355,22 @@
                     const jsonString = decoder.decode(result.data);
                     data = JSON.parse(jsonString);
                 } else {
-                    data = JSON.parse(result.data);
+                    // result.data is already a JavaScript object
+                    data = result.data;
                 }
                 
-                log('✅ getCalendar success:', data);
-                return data || [];
+                // Flatten all items from all weekdays into a single array
+                let allAnime = [];
+                if (Array.isArray(data)) {
+                    for (const dayData of data) {
+                        if (dayData.items && Array.isArray(dayData.items)) {
+                            allAnime = allAnime.concat(dayData.items);
+                        }
+                    }
+                }
+                
+                log('✅ getCalendar success:', allAnime.length, 'anime found');
+                return allAnime;
             } catch (error) {
                 log('❌ getCalendar error:', error, 'red');
                 return [];

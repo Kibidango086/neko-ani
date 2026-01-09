@@ -242,7 +242,7 @@ export const Home: React.FC = () => {
               </h2>
               {userCollection && (
                 <span className="text-sm text-on-surface-variant ml-4">
-                  共 {userCollection.total || userCollection.list?.length || 0} 部
+                  共 {userCollection.data?.total || userCollection.data?.list?.length || 0} 部
                 </span>
               )}
             </div>
@@ -257,16 +257,16 @@ export const Home: React.FC = () => {
                   </p>
                 </div>
               </div>
-            ) : userCollection && Array.isArray(userCollection.list) && userCollection.list.length > 0 ? (
+            ) : userCollection && userCollection.data && Array.isArray(userCollection.data.list) && userCollection.data.list.length > 0 ? (
               <div className="space-y-4">
                 <p className="text-sm text-on-surface-variant">
-                  共 {userCollection.total || userCollection.list.length} 部追番记录
+                  共 {userCollection.data.total || userCollection.data.list.length} 部追番记录
                 </p>
                 <div className="text-center py-8 text-on-surface-variant">
                   <BookOpen className="w-16 h-16 text-on-surface-variant mb-4 mx-auto" />
                   <p className="mb-2">追番列表功能正在开发中</p>
                   <p className="text-sm text-on-surface/80">
-                    当前显示 {userCollection.list.length} 条记录
+                    当前显示 {userCollection.data.list.length} 条记录
                   </p>
                 </div>
               </div>

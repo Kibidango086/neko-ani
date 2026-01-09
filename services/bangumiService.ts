@@ -109,58 +109,38 @@ export const updateCollectionStatus = async (
   };
 
 // 保持原有的跨域解决方案：先尝试油猴，失败后使用后端
-export const getUserCollectionWithFallback = async (accessToken: string, subjectType: number = 2, limit: number = 20): Promise<BangumiCollection> => {
+export const getUserCollectionWithFallback = async (accessToken: string, subjectType: number = 2, limit: number = 20): Promise<any> => {
     try {
       // 优先使用油猴脚本
       const { callUserscriptBridge } = await import('./parserService');
-      const collection = await callUserscriptBridge<BangumiCollection>('getUserCollection', {
+      const collection = await callUserscriptBridge<any>('getUserCollection', {
         accessToken,
         subjectType,
         limit
       });
       
-      if (collection && collection.list && collection.list.length > 0) {
+      if (collection && collection.data && collection.data.list && collection.data.list.length > 0) {
         return collection;
       }
       
       console.log('Userscript returned empty collection, returning default');
       return {
-        list: [],
-        total: 0,
-        limit: 0,
-        offset: 0,
-        subject: {
-          id: 0,
-          url: '',
-          type: 0,
-          name: '',
-          name_cn: '',
-          summary: '',
-          images: { small: '', grid: '', large: '', medium: '', common: '' },
-          rating: { score: 0, total: 0, rank: 0 },
-          collection: { wish: 0, collect: 0, doing: 0, on_hold: 0, dropped: 0 },
-          tags: []
+        data: {
+          list: [],
+          total: 0,
+          limit: 0,
+          offset: 0
         }
       };
     } catch (error) {
       console.error('User collection error (userscript failed):', error);
       // Return empty collection instead of falling back to direct API to avoid CORS
       return {
-        list: [],
-        total: 0,
-        limit: 0,
-        offset: 0,
-        subject: {
-          id: 0,
-          url: '',
-          type: 0,
-          name: '',
-          name_cn: '',
-          summary: '',
-          images: { small: '', grid: '', large: '', medium: '', common: '' },
-          rating: { score: 0, total: 0, rank: 0 },
-          collection: { wish: 0, collect: 0, doing: 0, on_hold: 0, dropped: 0 },
-          tags: []
+        data: {
+          list: [],
+          total: 0,
+          limit: 0,
+          offset: 0
         }
       };
     }
