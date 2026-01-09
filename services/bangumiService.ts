@@ -38,42 +38,28 @@ export const getCalendar = async (): Promise<BangumiSubject[]> => {
     }
   };
 
-export const getUserCollection = async (accessToken: string, subjectType: number = 2, limit: number = 20): Promise<BangumiCollection> => {
+export const getUserCollection = async (accessToken: string, subjectType: number = 2, limit: number = 20): Promise<any> => {
     try {
-      const response = await fetch(`${BASE_URL}/user/collection/${subjectType}?limit=${limit}`, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-        }
+      // 使用 userscript 桥接来避免 CORS
+      const { callUserscriptBridge } = await import('./parserService');
+      const collection = await callUserscriptBridge<any>('getUserCollection', {
+        accessToken,
+        subjectType,
+        limit
       });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch user collection: ${response.status}`);
-      }
-
-      const data = await response.json();
-      return data;
+      return collection;
     } catch (error) {
-      console.error('Bangumi Collection Error:', error);
+      console.error('Bangumi Collection Error (userscript failed):', error);
       return {
-        list: [],
-        total: 0,
-        limit: 0,
-        offset: 0,
-        subject: {
-          id: 0,
-          url: '',
-          type: 0,
-          name: '',
-          name_cn: '',
-          summary: '',
-          images: { small: '', grid: '', large: '', medium: '', common: '' },
-          rating: { score: 0, total: 0, rank: 0 },
-          collection: { wish: 0, collect: 0, doing: 0, on_hold: 0, dropped: 0 },
-          tags: []
+        data: {
+          list: [],
+          total: 0,
+          limit: 0,
+          offset: 0
         }
       };
     }
-};
+  };
 
 // 更新追番状态API
 export const updateCollectionStatus = async (
