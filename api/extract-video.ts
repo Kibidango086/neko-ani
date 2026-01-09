@@ -26,36 +26,26 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ error: 'Missing source or episodeUrl' });
     }
 
-    console.log(`Backend API: Video extraction fallback for ${episodeUrl}`);
+    console.log(`Extracting via Browserless: ${episodeUrl}`);
 
     try {
         const { extractVideoUrl } = await import('./_server/parsers.js');
         const result = await extractVideoUrl(source, episodeUrl, browserlessEndpoint);
         
         if (result && result.videoUrl) {
-            console.log('Backend API: Extraction successful:', result.videoUrl);
+            console.log('Extraction successful:', result.videoUrl);
             return res.status(200).json(result);
         }
         
-        return res.status(404).json({ 
-          error: 'Video URL not found via backend fallback', 
-          debug: result?.debug,
-          message: 'Please install the userscript for better video extraction'
-        });
+        return res.status(404).json({ error: 'Video URL not found via Browserless', debug: result?.debug });
     } catch (error) {
-        console.error('Backend API: Extraction fallback error:', error);
-        return res.status(500).json({ 
-          error: 'Backend extraction fallback failed', 
-          message: 'Please install the userscript for better performance',
-        });
+        console.error('Extraction error:', error);
+        return res.status(500).json({ error: 'Extraction service error', message: String(error) });
     }
 
   } catch (error) {
-    console.error('Backend API: Request error:', error);
-    return res.status(500).json({ 
-      error: 'Internal server error', 
-      message: 'Please install the userscript for better performance',
-    });
+    console.error('Request error:', error);
+    return res.status(500).json({ error: 'Internal server error', message: String(error) });
   }
 }
 

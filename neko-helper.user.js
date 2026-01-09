@@ -197,11 +197,13 @@
         const dbg = (label, data) => { try { debug.steps.push({ label, data }); } catch (e) {} };
 
         try {
-            dbg('directExtractionStart', { url: episodeUrl });
+            dbg('simpleExtractionStart', { url: episodeUrl });
 
+            // Simple extraction for userscript - only basic HTML parsing
             const html = await fetchWithRetry(episodeUrl);
             dbg('htmlFetched', { length: html.length });
 
+            // Check for direct regex match
             if (config.matchVideo?.matchVideoUrl) {
                 const directMatch = findUrlInHtml(html, config.matchVideo.matchVideoUrl);
                 if (directMatch && directMatch.startsWith('http')) {
@@ -210,6 +212,7 @@
                 }
             }
 
+            // Check iframes
             const doc = parseHtml(html);
             const iframes = Array.from(doc.querySelectorAll('iframe'));
             for (const iframe of iframes) {
@@ -225,23 +228,9 @@
                 }
             }
 
-            if (config.matchVideo?.captureNetworkPattern) {
-                const patternRegex = new RegExp(config.matchVideo.captureNetworkPattern, 'g');
-                const matches = html.match(patternRegex);
-                if (matches) {
-                    for (const match of matches) {
-                        const url = match.includes('http') ? match : null;
-                        if (url && (url.includes('.m3u8') || url.includes('.mp4'))) {
-                            dbg('networkPatternMatch', { url });
-                            return { videoUrl: cleanVideoUrl(url), debug };
-                        }
-                    }
-                }
-            }
-
         } catch (error) {
-            dbg('extractionError', String(error));
-            console.error('Video extraction error:', error);
+            dbg('simpleExtractionError', String(error));
+            console.error('Userscript video extraction error:', error);
         }
 
         return { videoUrl: null, debug };
@@ -293,5 +282,5 @@
 
     window.NEKO_ANI_BRIDGE = bridge;
     if (typeof unsafeWindow !== 'undefined') unsafeWindow.NEKO_ANI_BRIDGE = bridge;
-    log('Bridge v2.0 Ready with search, episodes and video extraction!');
+    log('Bridge v2.0 Ready with search, episodes and simple video extraction!');
 })();

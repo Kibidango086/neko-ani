@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Extraction Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .test-section { border: 1px solid #ddd; margin: 20px 0; padding: 20px; border-radius: 8px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 4px; }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        button { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        textarea { width: 100%; height: 200px; font-family: monospace; }
+        .debug { background: #f8f9fa; padding: 15px; border-radius: 4px; font-family: monospace; font-size: 12px; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <h1>Video Extraction Test</h1>
+    <div id="status" class="status info">Testing bridge availability...</div>
+
+    <div class="test-section">
+        <h2>Test Video Extraction</h2>
+        <p>Enter a sample source configuration and episode URL to test video extraction:</p>
+        
+        <div>
+            <label for="sourceConfig">Source Configuration (JSON):</label>
+            <textarea id="sourceConfig" placeholder='Enter source JSON here...'>
+{
+  "arguments": {
+    "name": "Test Source",
+    "searchConfig": {
+      "matchVideo": {
+        "matchVideoUrl": "(https?:\\/\\/[^\"'\\s]+\\.m3u8[^\"'\\s]*)",
+        "waitMs": 3000,
+        "waitForSelector": "video"
+      }
+    }
+  }
+}
+            </textarea>
+        </div>
+        
+        <div style="margin: 10px 0;">
+            <label for="episodeUrl">Episode URL:</label>
+            <input type="text" id="episodeUrl" style="width: 100%; padding: 8px;" placeholder="Enter episode URL here..." value="">
+        </div>
+        
+        <button onclick="testExtraction()">Test Video Extraction</button>
+        
+        <div id="extractionResult"></div>
+        <div id="debugInfo"></div>
+    </div>
+
+    <script>
+        const statusEl = document.getElementById('status');
+        const resultEl = document.getElementById('extractionResult');
+        const debugEl = document.getElementById('debugInfo');
+
+        function log(message, type = 'info') {
+            console.log(message);
+            if (type === 'success') {
+                resultEl.innerHTML += `<div class="status success">${message}</div>`;
+            } else if (type === 'error') {
+                resultEl.innerHTML += `<div class="status error">${message}</div>`;
+            } else {
+                resultEl.innerHTML += `<div class="status info">${message}</div>`;
+            }
+        }
+
+        function showDebug(debug) {
+            debugEl.innerHTML = `<div class="debug">Debug Info:\n${JSON.stringify(debug, null, 2)}</div>`;
+        }
+
+        // Check bridge availability
+        function checkBridge() {
+            const checkInterval = setInterval(() => {
+                if (window.NEKO_ANI_BRIDGE) {
+                    clearInterval(checkInterval);
+                    statusEl.textContent = `✅ Bridge Ready! Version: ${window.NEKO_ANI_BRIDGE.version}`;
+                    statusEl.className = 'status success';
+                } else {
+                    statusEl.textContent = '⏳ Waiting for bridge... (Make sure Tampermonkey is enabled)';
+                }
+            }, 500);
+
+            setTimeout(() => {
+                clearInterval(checkInterval);
+                if (!window.NEKO_ANI_BRIDGE) {
+                    statusEl.textContent = '❌ Bridge not found! Please install Tampermonkey and enable the userscript.';
+                    statusEl.className = 'status error';
+                }
+            }, 5000);
+        }
+
+        async function testExtraction() {
+            const sourceConfigEl = document.getElementById('sourceConfig');
+            const episodeUrlEl = document.getElementById('episodeUrl');
+            
+            try {
+                const source = JSON.parse(sourceConfigEl.value);
+                const episodeUrl = episodeUrlEl.value.trim();
+                
+                if (!episodeUrl) {
+                    log('Please enter an episode URL', 'error');
+                    return;
+                }
+                
+                if (!window.NEKO_ANI_BRIDGE) {
+                    log('Bridge not available! Please install the userscript first.', 'error');
+                    return;
+                }
+                
+                log(`🔄 Starting extraction for: ${episodeUrl}`, 'info');
+                
+                const result = await window.NEKO_ANI_BRIDGE.extractVideoUrl(source, episodeUrl);
+                
+                if (result.videoUrl) {
+                    log(`✅ Extraction successful!`, 'success');
+                    log(`📹 Video URL: ${result.videoUrl}`, 'success');
+                    
+                    // Show video player
+                    resultEl.innerHTML += `
+                        <div style="margin-top: 20px;">
+                            <h3>Video Preview:</h3>
+                            <video controls style="width: 100%; max-width: 600px;">
+                                <source src="${result.videoUrl}" type="application/x-mpegURL">
+                                Your browser does not support the video tag.
+                            </video>
+                        </div>
+                    `;
+                } else {
+                    log('❌ Extraction failed - no video URL found', 'error');
+                }
+                
+                if (result.debug) {
+                    showDebug(result.debug);
+                }
+                
+            } catch (error) {
+                log(`❌ Extraction error: ${error.message}`, 'error');
+                console.error('Extraction error:', error);
+            }
+        }
+
+        // Initialize
+        checkBridge();
+    </script>
+</body>
+</html>
