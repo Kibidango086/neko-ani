@@ -9,7 +9,7 @@ interface UserscriptContextType {
 
 const UserscriptContext = createContext<UserscriptContextType | undefined>(undefined);
 
-const REQUIRED_VERSION = '2.0';
+const REQUIRED_VERSION = '2.1';
 
 export const UserscriptProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [isInstalled, setIsInstalled] = useState(false);
@@ -62,10 +62,11 @@ export const UserscriptProvider: React.FC<{ children: ReactNode }> = ({ children
   };
 
   useEffect(() => {
+    // Initial check
     checkStatus();
     
-    // Re-check every 30 seconds in case userscript is loaded later
-    const interval = setInterval(checkStatus, 30000);
+    // Re-check every 10 seconds in case userscript is loaded later
+    const interval = setInterval(checkStatus, 10000);
     
     return () => clearInterval(interval);
   }, []);

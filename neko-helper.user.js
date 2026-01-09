@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Neko-Ani Video Helper
 // @namespace    https://github.com/neko-stream/neko-ani
-// @version      2.0
+// @version      2.1
 // @description  CORS bypass bridge with search, episodes and video extraction
 // @author       Neko-Ani
 // @match        *://*/*
@@ -194,7 +194,7 @@
 
 
     const bridge = {
-        version: '2.0',
+        version: '2.1',
         fetch: (url, options = {}) => {
             return new Promise((resolve, reject) => {
                 log('Fetching:', url, '#007bff');
@@ -246,5 +246,5 @@
 
     window.NEKO_ANI_BRIDGE = bridge;
     if (typeof unsafeWindow !== 'undefined') unsafeWindow.NEKO_ANI_BRIDGE = bridge;
-    log('Bridge v2.0 Ready with search and episodes!');
+    log('Bridge v2.1 Ready with search and episodes!');
 })();
