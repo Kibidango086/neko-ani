@@ -2,7 +2,7 @@
 
 [Demo](https://neko-ani.kibidango.top)
 
-自用简洁看番。结合了 Bangumi 。灵感来自 [Animeko](Refer to the subscription at github.com/open-ani/animeko)。
+自用简洁看番。结合了 Bangumi 。灵感来自 [Animeko](github.com/open-ani/animeko)。
 
 部署在 Vercel 。
 

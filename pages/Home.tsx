@@ -140,7 +140,7 @@ export const Home: React.FC = () => {
           <section className="space-y-8">
             <div className="mb-6">
               <h2 className="text-3xl font-medium text-on-surface tracking-tight">
-                放送Schedule
+                Schedule
               </h2>
             </div>
             
