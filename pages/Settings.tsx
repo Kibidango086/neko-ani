@@ -1,66 +1,42 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../store';
-import { Save, AlertTriangle, CheckCircle, Plus, Trash2, Server, Download, Copy, ShieldCheck, ExternalLink } from 'lucide-react';
+import { Save, AlertTriangle, CheckCircle, Plus, Trash2, Server, Download, ShieldCheck, ExternalLink, X } from 'lucide-react';
 
 export const Settings: React.FC = () => {
   const { 
     bangumiToken, setBangumiToken, 
     rawJson, setMediaSourceJson, 
-    browserlessEndpoints, setBrowserlessEndpoints,
-    useUserscript, setUseUserscript 
+    browserlessEndpoints, setBrowserlessEndpoints
   } = useAppStore();
   
   const [localJson, setLocalJson] = useState(rawJson);
   const [localToken, setLocalToken] = useState(bangumiToken);
   const [localEndpoints, setLocalEndpoints] = useState<string[]>(browserlessEndpoints);
-  const [localUseUserscript, setLocalUseUserscript] = useState(useUserscript);
   const [newEndpoint, setNewEndpoint] = useState('');
   const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
+  const [showUserscriptBanner, setShowUserscriptBanner] = useState(false);
+  const [userscriptInstalled, setUserscriptInstalled] = useState(false);
 
-  const USERSCRIPT_CODE = `// ==UserScript==
-// @name         Neko-Ani Video Helper
-// @namespace    https://github.com/neko-stream/neko-ani
-// @version      1.3
-// @description  CORS bypass bridge with enhanced logging
-// @author       Neko-Ani
-// @match        *://*/*
-// @grant        GM_xmlhttpRequest
-// @grant        unsafeWindow
-// @run-at       document-start
-// @connect      *
-// ==/UserScript==
+  // Check if userscript is installed
+  useEffect(() => {
+    const checkInterval = setInterval(() => {
+      if (window.NEKO_ANI_BRIDGE) {
+        setUserscriptInstalled(true);
+        setShowUserscriptBanner(false);
+        clearInterval(checkInterval);
+      }
+    }, 500);
 
-(function() {
-    'use strict';
-    const bridge = {
-        fetch: (url, options = {}) => {
-            return new Promise((resolve, reject) => {
-                const requestOptions = {
-                    method: options.method || 'GET',
-                    url: url,
-                    headers: options.headers || {},
-                    data: options.body,
-                    responseType: options.responseType || 'arraybuffer',
-                    onload: (res) => resolve({
-                        status: res.status,
-                        data: res.response,
-                        headers: res.responseHeaders,
-                        finalUrl: res.finalUrl
-                    }),
-                    onerror: reject
-                };
-                if (requestOptions.headers['X-Neko-Referer']) {
-                    requestOptions.headers['Referer'] = requestOptions.headers['X-Neko-Referer'];
-                    delete requestOptions.headers['X-Neko-Referer'];
-                }
-                GM_xmlhttpRequest(requestOptions);
-            });
-        }
-    };
-    window.NEKO_ANI_BRIDGE = bridge;
-    if (typeof unsafeWindow !== 'undefined') unsafeWindow.NEKO_ANI_BRIDGE = bridge;
-    console.log('🐾 [Neko-Ani] Bridge Ready v1.3');
-})();`;
+    // Show banner after 3 seconds if not found
+    setTimeout(() => {
+      if (!window.NEKO_ANI_BRIDGE) {
+        setShowUserscriptBanner(true);
+        clearInterval(checkInterval);
+      }
+    }, 3000);
+
+    return () => clearInterval(checkInterval);
+  }, []);
 
   const handleSave = () => {
     try {
@@ -68,18 +44,11 @@ export const Settings: React.FC = () => {
         setMediaSourceJson(localJson);
         setBangumiToken(localToken);
         setBrowserlessEndpoints(localEndpoints);
-        setUseUserscript(localUseUserscript);
         setMessage({ type: 'success', text: 'Settings saved successfully!' });
         setTimeout(() => setMessage(null), 3000);
     } catch (e) {
         setMessage({ type: 'error', text: 'Invalid JSON format in Source Configuration.' });
     }
-  };
-
-  const copyScript = () => {
-    navigator.clipboard.writeText(USERSCRIPT_CODE);
-    setMessage({ type: 'success', text: 'Script copied to clipboard!' });
-    setTimeout(() => setMessage(null), 2000);
   };
 
   const addEndpoint = () => {
@@ -95,63 +64,54 @@ export const Settings: React.FC = () => {
 
   return (
     <div className="max-w-3xl mx-auto space-y-10 p-4 md:p-8">
-        <h1 className="text-4xl font-normal text-on-surface tracking-tight">Settings</h1>
-        
-        {/* Playback Method */}
-        <div className="space-y-4">
-            <label className="block text-base font-medium text-on-surface flex items-center gap-2">
-                Playback Mode
-                {!localUseUserscript && <span className="text-[10px] bg-red-500/20 text-red-500 px-2 py-0.5 rounded-full uppercase">CORS Restricted</span>}
-                {localUseUserscript && <span className="text-[10px] bg-green-500/20 text-green-500 px-2 py-0.5 rounded-full uppercase">Helper Active</span>}
-            </label>
-            
-            <div className="bg-surface-container rounded-3xl overflow-hidden border border-outline/10">
-                <div className="p-6 space-y-6">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <h3 className="font-bold text-on-surface">Use Userscript Helper</h3>
-                            <p className="text-sm text-on-surface-variant text-pretty">Bypass all CORS restrictions by fetching video segments directly from your browser. Highly recommended for all users.</p>
-                        </div>
-                        <button 
-                            onClick={() => setLocalUseUserscript(!localUseUserscript)}
-                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${localUseUserscript ? 'bg-primary' : 'bg-surface-variant'}`}
-                        >
-                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${localUseUserscript ? 'translate-x-6' : 'translate-x-1'}`} />
-                        </button>
+        {/* Userscript Banner */}
+        {showUserscriptBanner && (
+            <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-2xl p-6 relative">
+                <button
+                    onClick={() => setShowUserscriptBanner(false)}
+                    className="absolute top-4 right-4 text-on-surface-variant hover:text-on-surface"
+                >
+                    <X size={16} />
+                </button>
+                <div className="flex items-start gap-4">
+                    <div className="p-2 bg-blue-500/20 rounded-xl">
+                        <ShieldCheck className="text-blue-500" size={20} />
                     </div>
-
-                    <div className="space-y-4 pt-4 border-t border-outline/10">
-                        <div className="flex items-start gap-3 bg-primary/5 p-4 rounded-2xl border border-primary/10">
-                            <ShieldCheck className="text-primary shrink-0" size={20} />
-                            <div className="text-sm text-on-surface-variant leading-relaxed">
-                                <p className="font-bold text-primary mb-1">One-Click Setup</p>
-                                1. Install <a href="https://www.tampermonkey.net/" target="_blank" className="underline font-medium text-primary inline-flex items-center gap-1">Tampermonkey <ExternalLink size={12} /></a> extension.<br />
-                                2. Click "Install Helper Script" below.<br />
-                                3. Toggle "Use Userscript Helper" to <strong>ON</strong> and save.
-                            </div>
-                        </div>
-                        
-                        <div className="flex gap-3">
+                    <div className="flex-1">
+                        <h3 className="font-bold text-on-surface mb-2">Install Userscript for Better Experience</h3>
+                        <p className="text-sm text-on-surface-variant mb-4">
+                            Install the Tampermonkey script to bypass all restrictions and get faster video extraction. This is highly recommended for the best experience.
+                        </p>
+                        <div className="flex items-center gap-3">
                             <a 
                                 href="/api/helper.user.js" 
                                 target="_blank"
-                                className="flex-1 flex items-center justify-center gap-2 bg-primary text-on-primary py-3 rounded-xl transition-all text-sm font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95"
+                                className="flex items-center gap-2 bg-primary text-on-primary px-4 py-2 rounded-xl text-sm font-bold transition-all hover:scale-[1.02] active:scale-95"
                             >
-                                <Download size={16} />
-                                Install Helper Script
+                                <Download size={14} />
+                                Install Script
                             </a>
-                            <button 
-                                onClick={copyScript}
-                                title="Copy code manually"
-                                className="px-4 bg-surface-container-high hover:bg-surface-variant text-on-surface py-3 rounded-xl transition-all"
-                            >
-                                <Copy size={16} />
-                            </button>
+                            <span className="text-xs text-on-surface-variant">
+                                Requires <a href="https://www.tampermonkey.net/" target="_blank" className="underline inline-flex items-center gap-1">Tampermonkey <ExternalLink size={10} /></a>
+                            </span>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
+        )}
+
+        {/* Status */}
+        {userscriptInstalled && (
+            <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4 flex items-center gap-3">
+                <CheckCircle className="text-green-500" size={20} />
+                <div>
+                    <p className="font-medium text-on-surface">Userscript Active</p>
+                    <p className="text-sm text-on-surface-variant">Version {window.NEKO_ANI_BRIDGE?.version} - All features enabled</p>
+                </div>
+            </div>
+        )}
+        
+        <h1 className="text-4xl font-normal text-on-surface tracking-tight">Settings</h1>
 
         {/* Bangumi Token */}
         <div className="space-y-4">
@@ -170,7 +130,10 @@ export const Settings: React.FC = () => {
 
         {/* Browserless Endpoints */}
         <div className="space-y-4">
-            <label className="block text-base font-medium text-on-surface">Browserless API Key Pool</label>
+            <label className="block text-base font-medium text-on-surface">
+                Browserless API Keys
+                {!userscriptInstalled && <span className="text-[10px] bg-yellow-500/20 text-yellow-500 px-2 py-0.5 rounded-full uppercase ml-2">Fallback Mode</span>}
+            </label>
             <div className="bg-surface-container rounded-2xl p-4 space-y-4">
                 <div className="flex gap-2">
                     <input 
@@ -210,12 +173,20 @@ export const Settings: React.FC = () => {
                     </div>
                 ) : (
                     <div className="text-center py-6 text-on-surface-variant text-sm border border-dashed border-outline/20 rounded-xl">
-                        No API Keys configured. Video extraction will not work.
+                        {userscriptInstalled ? 
+                            "Optional: API Keys for video extraction fallback"
+                        : 
+                            "Required: API Keys for video extraction (install userscript to remove this requirement)"
+                        }
                     </div>
                 )}
             </div>
             <p className="text-sm text-on-surface-variant px-2 leading-relaxed">
-                <strong>Mandatory for Video Extraction:</strong> This project uses Browserless.io to resolve video links. Enter your API Key(s) above. Multiple keys will be rotated automatically.
+                {userscriptInstalled ? (
+                    <><strong>Optional:</strong> Used only if userscript extraction fails. Multiple keys will be rotated automatically.</>
+                ) : (
+                    <><strong>Mandatory for Video Extraction:</strong> Required for video extraction when userscript is not installed.</>
+                )}
             </p>
         </div>
 
@@ -232,7 +203,11 @@ export const Settings: React.FC = () => {
             </div>
             <p className="text-sm text-on-surface-variant px-2 flex items-center gap-2">
                 <AlertTriangle size={14} className="text-yellow-500" />
-                Requests are proxied via <code>allorigins.win</code> to bypass CORS.
+                {!userscriptInstalled ? (
+                    "Requests are proxied via backend APIs to bypass CORS."
+                ) : (
+                    "Source configuration for video sites and parsing rules."
+                )}
             </p>
         </div>
 

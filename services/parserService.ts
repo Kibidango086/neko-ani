@@ -1,18 +1,5 @@
 import { MediaSource, VideoSourceResult, VideoEpisode } from '../types';
 
-// Type definition for the userscript bridge
-declare global {
-  interface Window {
-    NEKO_ANI_BRIDGE?: {
-      version: string;
-      fetch: (url: string, options?: any) => Promise<any>;
-      searchSource: (source: MediaSource, keyword: string) => Promise<VideoSourceResult[]>;
-      getEpisodes: (source: MediaSource, detailUrl: string) => Promise<VideoEpisode[]>;
-      extractVideoUrl: (source: MediaSource, episodeUrl: string) => Promise<{ videoUrl: string | null; debug?: any }>;
-    };
-  }
-}
-
 // Check if userscript bridge is available
 const checkUserscriptBridge = (): Promise<void> => {
   return new Promise((resolve, reject) => {

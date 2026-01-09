@@ -1,6 +1,19 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { SourceDataList, MediaSource } from './types';
 
+// Type definition for the userscript bridge
+declare global {
+  interface Window {
+    NEKO_ANI_BRIDGE?: {
+      version: string;
+      fetch: (url: string, options?: any) => Promise<any>;
+      searchSource: (source: MediaSource, keyword: string) => Promise<any[]>;
+      getEpisodes: (source: MediaSource, detailUrl: string) => Promise<any[]>;
+      extractVideoUrl: (source: MediaSource, episodeUrl: string) => Promise<{ videoUrl: string | null; debug?: any }>;
+    };
+  }
+}
+
 interface AppContextType {
   bangumiToken: string;
   setBangumiToken: (token: string) => void;
@@ -9,8 +22,6 @@ interface AppContextType {
   rawJson: string;
   browserlessEndpoints: string[];
   setBrowserlessEndpoints: (endpoints: string[]) => void;
-  useUserscript: boolean;
-  setUseUserscript: (use: boolean) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -33,7 +44,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return stored ? JSON.parse(stored) : [];
     } catch (e) { return []; }
   });
-  const [useUserscript, setUseUserscript] = useState(() => localStorage.getItem('use_userscript') === 'true');
+
 
   useEffect(() => {
     localStorage.setItem('bangumi_token', bangumiToken);
@@ -43,9 +54,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem('browserless_endpoints', JSON.stringify(browserlessEndpoints));
   }, [browserlessEndpoints]);
 
-  useEffect(() => {
-    localStorage.setItem('use_userscript', useUserscript.toString());
-  }, [useUserscript]);
+
 
   useEffect(() => {
     localStorage.setItem('source_json', rawJson);
@@ -68,8 +77,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         bangumiToken, setBangumiToken, 
         mediaSources, setMediaSourceJson, 
         rawJson, 
-        browserlessEndpoints, setBrowserlessEndpoints,
-        useUserscript, setUseUserscript
+        browserlessEndpoints, setBrowserlessEndpoints
     }}>
       {children}
     </AppContext.Provider>
