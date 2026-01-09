@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neko-Ani Bridge Test</title>
+</head>
+<body>
+    <h1>Neko-Ani Bridge Test</h1>
+    <div id="status">Testing bridge availability...</div>
+    <div id="results"></div>
+
+    <script>
+        const statusEl = document.getElementById('status');
+        const resultsEl = document.getElementById('results');
+
+        function log(message) {
+            console.log(message);
+            resultsEl.innerHTML += '<p>' + message + '</p>';
+        }
+
+        async function testBridge() {
+            try {
+                // Check if bridge is available
+                const checkInterval = setInterval(() => {
+                    if (window.NEKO_ANI_BRIDGE) {
+                        clearInterval(checkInterval);
+                        statusEl.textContent = 'Bridge found! Version: ' + window.NEKO_ANI_BRIDGE.version;
+                        
+                        // Test bridge methods
+                        log('✅ Bridge loaded successfully');
+                        log('📋 Version: ' + window.NEKO_ANI_BRIDGE.version);
+                        log('🔧 Available methods: ' + Object.keys(window.NEKO_ANI_BRIDGE).filter(k => typeof window.NEKO_ANI_BRIDGE[k] === 'function').join(', '));
+                        
+                    } else {
+                        statusEl.textContent = 'Waiting for bridge... (Make sure Tampermonkey is enabled)';
+                    }
+                }, 500);
+
+                // Timeout after 10 seconds
+                setTimeout(() => {
+                    clearInterval(checkInterval);
+                    if (!window.NEKO_ANI_BRIDGE) {
+                        statusEl.textContent = '❌ Bridge not found! Please install Tampermonkey and enable the userscript.';
+                        log('❌ Bridge not found after 10 seconds');
+                        log('💡 Please:');
+                        log('1. Install Tampermonkey extension');
+                        log('2. Install the neko-helper.user.js script');
+                        log('3. Enable the script for this page');
+                        log('4. Refresh this page');
+                    }
+                }, 10000);
+
+            } catch (error) {
+                statusEl.textContent = 'Error: ' + error.message;
+                log('❌ Error: ' + error.message);
+            }
+        }
+
+        testBridge();
+    </script>
+</body>
+</html>

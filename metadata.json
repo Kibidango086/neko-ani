@@ -1,0 +1,5 @@
+{
+  "name": "Neko-Ani",
+  "description": "A modern, client-side anime streaming aggregator. Features Bangumi integration for tracking and a customizable source engine compatible with community configurations.",
+  "requestFramePermissions": []
+}
