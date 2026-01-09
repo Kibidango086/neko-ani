@@ -9,7 +9,6 @@ declare global {
       fetch: (url: string, options?: any) => Promise<any>;
       searchSource: (source: MediaSource, keyword: string) => Promise<any[]>;
       getEpisodes: (source: MediaSource, detailUrl: string) => Promise<any[]>;
-      extractVideoUrl: (source: MediaSource, episodeUrl: string) => Promise<{ videoUrl: string | null; debug?: any }>;
     };
   }
 }

@@ -191,50 +191,7 @@
         return episodes;
     };
 
-    const extractVideoUrl = async (source, episodeUrl) => {
-        const config = source.arguments.searchConfig;
-        const debug = { steps: [] };
-        const dbg = (label, data) => { try { debug.steps.push({ label, data }); } catch (e) {} };
 
-        try {
-            dbg('simpleExtractionStart', { url: episodeUrl });
-
-            // Simple extraction for userscript - only basic HTML parsing
-            const html = await fetchWithRetry(episodeUrl);
-            dbg('htmlFetched', { length: html.length });
-
-            // Check for direct regex match
-            if (config.matchVideo?.matchVideoUrl) {
-                const directMatch = findUrlInHtml(html, config.matchVideo.matchVideoUrl);
-                if (directMatch && directMatch.startsWith('http')) {
-                    dbg('directRegexMatch', { url: directMatch });
-                    return { videoUrl: cleanVideoUrl(decodeURIComponent(directMatch)), debug };
-                }
-            }
-
-            // Check iframes
-            const doc = parseHtml(html);
-            const iframes = Array.from(doc.querySelectorAll('iframe'));
-            for (const iframe of iframes) {
-                const src = iframe.getAttribute('src');
-                if (src) {
-                    try {
-                        const fullSrc = new URL(src, new URL(episodeUrl).origin).href;
-                        if (fullSrc.includes('.m3u8') || fullSrc.includes('.mp4')) {
-                            dbg('iframeVideoFound', { url: fullSrc });
-                            return { videoUrl: cleanVideoUrl(fullSrc), debug };
-                        }
-                    } catch (e) {}
-                }
-            }
-
-        } catch (error) {
-            dbg('simpleExtractionError', String(error));
-            console.error('Userscript video extraction error:', error);
-        }
-
-        return { videoUrl: null, debug };
-    };
 
     const bridge = {
         version: '2.0',
@@ -276,11 +233,10 @@
             });
         },
         searchSource,
-        getEpisodes,
-        extractVideoUrl
+        getEpisodes
     };
 
     window.NEKO_ANI_BRIDGE = bridge;
     if (typeof unsafeWindow !== 'undefined') unsafeWindow.NEKO_ANI_BRIDGE = bridge;
-    log('Bridge v2.0 Ready with search, episodes and simple video extraction!');
+    log('Bridge v2.0 Ready with search and episodes!');
 })();

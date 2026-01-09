@@ -173,20 +173,12 @@ export const Settings: React.FC = () => {
                     </div>
                 ) : (
                     <div className="text-center py-6 text-on-surface-variant text-sm border border-dashed border-outline/20 rounded-xl">
-                        {userscriptInstalled ? 
-                            "Optional: API Keys for video extraction fallback"
-                        : 
-                            "Required: API Keys for video extraction (install userscript to remove this requirement)"
-                        }
+                        Required: API Keys for video extraction (Browserless service)
                     </div>
                 )}
             </div>
             <p className="text-sm text-on-surface-variant px-2 leading-relaxed">
-                {userscriptInstalled ? (
-                    <><strong>Optional:</strong> Used only if userscript extraction fails. Multiple keys will be rotated automatically.</>
-                ) : (
-                    <><strong>Mandatory for Video Extraction:</strong> Required for video extraction when userscript is not installed.</>
-                )}
+                <strong>Mandatory for Video Extraction:</strong> All video extraction uses Browserless service. Multiple keys will be rotated automatically for better reliability.
             </p>
         </div>
 
@@ -203,11 +195,7 @@ export const Settings: React.FC = () => {
             </div>
             <p className="text-sm text-on-surface-variant px-2 flex items-center gap-2">
                 <AlertTriangle size={14} className="text-yellow-500" />
-                {!userscriptInstalled ? (
-                    "Requests are proxied via backend APIs to bypass CORS."
-                ) : (
-                    "Source configuration for video sites and parsing rules."
-                )}
+                Source configuration for video sites and parsing rules. Video extraction uses Browserless service.
             </p>
         </div>
 

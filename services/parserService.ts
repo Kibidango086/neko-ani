@@ -171,31 +171,18 @@ export const extractVideoUrl = async (
     if (cached) return cached;
 
     try {
-      // Try userscript bridge first
-      const result = await callUserscriptBridge<{ videoUrl: string | null; debug?: any }>('extractVideoUrl', {
+      const browserlessEndpoint = getBrowserlessEndpoint();
+      const result = await callBackendApi<{ videoUrl: string | null }>('/extract-video', {
         source,
         episodeUrl,
+        browserlessEndpoint,
       });
       if (result.videoUrl) {
           setCache(cacheKey, result.videoUrl);
       }
       return result.videoUrl;
-    } catch (userscriptError) {
-      console.warn('Userscript bridge failed, falling back to backend API:', userscriptError);
-      try {
-        const browserlessEndpoint = getBrowserlessEndpoint();
-        const result = await callBackendApi<{ videoUrl: string | null }>('/extract-video', {
-          source,
-          episodeUrl,
-          browserlessEndpoint,
-        });
-        if (result.videoUrl) {
-            setCache(cacheKey, result.videoUrl);
-        }
-        return result.videoUrl;
-      } catch (backendError) {
-        console.error('Both userscript and backend API failed:', backendError);
-        return null;
-      }
+    } catch (backendError) {
+      console.error('Video extraction failed:', backendError);
+      return null;
     }
 };
