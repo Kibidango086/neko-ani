@@ -4,7 +4,7 @@
 // @version      2.1
 // @description  CORS bypass bridge with search, episodes and video extraction
 // @author       Neko-Ani
-// @match        *://*/*
+// @match        *://neko-ani.kibidango.top/*
 // @grant        GM_xmlhttpRequest
 // @grant        unsafeWindow
 // @run-at       document-start
