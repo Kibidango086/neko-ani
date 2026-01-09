@@ -43,7 +43,7 @@ export const Home: React.FC = () => {
             </div>
             
             {bangumiToken ? (
-              <div className="flex items-center gap-2 px-4 py-2 bg-surface-container rounded-2xl">
+              <div className="flex items-center gap-2 px-6 py-4 bg-surface-container rounded-2xl">
                 <User className="text-primary" size={16} />
                 <span className="text-sm font-medium text-on-surface-variant">已登录</span>
               </div>
@@ -70,7 +70,7 @@ export const Home: React.FC = () => {
           <nav className="flex space-x-1">
             <button
               onClick={() => setActiveTab('trending')}
-              className={`flex-1 py-4 px-6 border-b-4 font-medium text-sm transition-all duration-200 ${
+              className={`flex-1 py-4 px-6 border-b-4 font-medium text-sm transition-all duration-200 rounded-t-xl ${
                 activeTab === 'trending'
                   ? 'border-primary text-primary bg-primary/10'
                   : 'border-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface-variant/50'
@@ -83,7 +83,7 @@ export const Home: React.FC = () => {
             </button>
             <button
               onClick={() => setActiveTab('calendar')}
-              className={`flex-1 py-4 px-6 border-b-4 font-medium text-sm transition-all duration-200 ${
+              className={`flex-1 py-4 px-6 border-b-4 font-medium text-sm transition-all duration-200 rounded-t-xl ${
                 activeTab === 'calendar'
                   ? 'border-primary text-primary bg-primary/10'
                   : 'border-transparent text-on-surface-variant hover:text-on-surface hover:bg-surface-variant/50'
