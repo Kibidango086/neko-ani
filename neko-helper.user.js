@@ -254,7 +254,20 @@
                     }
                 });
                 
-                const data = JSON.parse(result.data);
+                // Handle different response data types
+                let data;
+                if (typeof result.data === 'string') {
+                    data = JSON.parse(result.data);
+                } else if (result.data instanceof ArrayBuffer) {
+                    // Convert ArrayBuffer to string
+                    const decoder = new TextDecoder('utf-8');
+                    const jsonString = decoder.decode(result.data);
+                    data = JSON.parse(jsonString);
+                } else {
+                    // Try to parse directly
+                    data = JSON.parse(result.data);
+                }
+                
                 log('✅ getUserCollection success:', data);
                 return data;
             } catch (error) {
@@ -273,7 +286,18 @@
                     }
                 });
                 
-                const data = JSON.parse(result.data);
+                // Handle different response data types
+                let data;
+                if (typeof result.data === 'string') {
+                    data = JSON.parse(result.data);
+                } else if (result.data instanceof ArrayBuffer) {
+                    const decoder = new TextDecoder('utf-8');
+                    const jsonString = decoder.decode(result.data);
+                    data = JSON.parse(jsonString);
+                } else {
+                    data = JSON.parse(result.data);
+                }
+                
                 return {
                     watching: data.watching || 0,
                     total: data.total || 0
@@ -305,6 +329,37 @@
             } catch (error) {
                 log('❌ updateCollectionStatus error:', error, 'red');
                 throw error;
+            }
+        },
+        
+        // Bangumi Calendar API for getting seasonal anime
+        getCalendar: async () => {
+            try {
+                const currentYear = new Date().getFullYear();
+                const url = `https://api.bgm.tv/calendar/${currentYear}`;
+                const result = await bridge.fetch(url, {
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+                
+                // Handle different response data types
+                let data;
+                if (typeof result.data === 'string') {
+                    data = JSON.parse(result.data);
+                } else if (result.data instanceof ArrayBuffer) {
+                    const decoder = new TextDecoder('utf-8');
+                    const jsonString = decoder.decode(result.data);
+                    data = JSON.parse(jsonString);
+                } else {
+                    data = JSON.parse(result.data);
+                }
+                
+                log('✅ getCalendar success:', data);
+                return data || [];
+            } catch (error) {
+                log('❌ getCalendar error:', error, 'red');
+                return [];
             }
         }
     };

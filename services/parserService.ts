@@ -9,6 +9,7 @@ declare global {
       getUserCollection: (payload: { accessToken: string; subjectType: number; limit: number }) => Promise<any>;
       getSubjectWatchStatus: (payload: { accessToken: string; subjectId: number }) => Promise<{ watching: number; total: number }>;
       updateCollectionStatus: (payload: { accessToken: string; subjectId: number; type: number; comment?: string }) => Promise<boolean>;
+      getCalendar: () => Promise<any>;
       [key: string]: any;
     };
   }
@@ -82,7 +83,7 @@ export const callUserscriptBridge = async <T>(
   }
   
   // Handle different payload structures for different methods
-  if (method === 'getUserCollection' || method === 'getSubjectWatchStatus' || method === 'updateCollectionStatus') {
+  if (method === 'getUserCollection' || method === 'getSubjectWatchStatus' || method === 'updateCollectionStatus' || method === 'getCalendar') {
     return bridge[method](payload);
   } else {
     // Legacy methods for video sources

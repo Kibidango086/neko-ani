@@ -28,19 +28,15 @@ export const getBangumiSubject = async (id: number): Promise<BangumiSubject | nu
 
 export const getCalendar = async (): Promise<BangumiSubject[]> => {
     try {
-      const currentYear = new Date().getFullYear(); // 动态年份
-
-      const response = await fetch(
-        `${BASE_URL}/calendar/${currentYear}`
-      );
-
-      const data = await response.json();
-      return data || [];
+      // 使用 userscript 桥接来避免 CORS 问题
+      const { callUserscriptBridge } = await import('./parserService');
+      const data = await callUserscriptBridge<BangumiSubject[]>('getCalendar', {});
+      return Array.isArray(data) ? data : [];
     } catch (error) {
-      console.error('Bangumi Calendar Error:', error);
+      console.error('Bangumi Calendar Error (userscript failed):', error);
       return [];
     }
-};
+  };
 
 export const getUserCollection = async (accessToken: string, subjectType: number = 2, limit: number = 20): Promise<BangumiCollection> => {
     try {
